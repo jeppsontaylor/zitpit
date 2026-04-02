@@ -173,6 +173,156 @@ def agent_icon(drawing, x, y, color, halo_radius):
     drawing.add(Line(x - 8, y - 8, x + 8, y - 8, strokeColor=color, strokeWidth=1.6))
 
 
+def intrusion_icon(drawing, x, y, color, halo_color=None, scale=1.0):
+    halo = halo_color or color
+    exposure_halo(drawing, x, y + 2 * scale, 19 * scale, halo, dashed=True)
+    drawing.add(
+        Circle(
+            x,
+            y + 10 * scale,
+            9 * scale,
+            fillColor=None,
+            strokeColor=color,
+            strokeWidth=2,
+        )
+    )
+    drawing.add(
+        Line(
+            x - 10 * scale,
+            y + 4 * scale,
+            x + 10 * scale,
+            y + 4 * scale,
+            strokeColor=color,
+            strokeWidth=2,
+        )
+    )
+    drawing.add(
+        Line(
+            x - 3 * scale,
+            y - 2 * scale,
+            x + 3 * scale,
+            y - 2 * scale,
+            strokeColor=color,
+            strokeWidth=1.7,
+        )
+    )
+    drawing.add(
+        Line(
+            x,
+            y + 1 * scale,
+            x,
+            y - 16 * scale,
+            strokeColor=color,
+            strokeWidth=2,
+        )
+    )
+    drawing.add(
+        Line(
+            x,
+            y - 4 * scale,
+            x - 12 * scale,
+            y - 14 * scale,
+            strokeColor=color,
+            strokeWidth=2,
+        )
+    )
+    drawing.add(
+        Line(
+            x,
+            y - 4 * scale,
+            x + 12 * scale,
+            y - 14 * scale,
+            strokeColor=color,
+            strokeWidth=2,
+        )
+    )
+    drawing.add(
+        Line(
+            x - 6 * scale,
+            y + 11 * scale,
+            x - 3 * scale,
+            y + 15 * scale,
+            strokeColor=color,
+            strokeWidth=1.6,
+        )
+    )
+    drawing.add(
+        Line(
+            x + 6 * scale,
+            y + 11 * scale,
+            x + 3 * scale,
+            y + 15 * scale,
+            strokeColor=color,
+            strokeWidth=1.6,
+        )
+    )
+
+
+def cage_trap(drawing, x, y, w, h, stroke, accent):
+    roof_y = y + h - 10
+    floor_y = y + 16
+    left = x + 18
+    right = x + w - 18
+    drawing.add(Line(left, roof_y, right, roof_y, strokeColor=stroke, strokeWidth=2))
+    drawing.add(Line(left + 4, floor_y, right - 4, floor_y, strokeColor=stroke, strokeWidth=1.6))
+    for bar_x in [x + 40, x + 62, x + 84]:
+        drawing.add(Line(bar_x, floor_y, bar_x, roof_y, strokeColor=stroke, strokeWidth=1.6))
+    drawing.add(Line(x + w - 42, y + h - 4, x + w - 28, roof_y, strokeColor=accent, strokeWidth=2))
+    drawing.add(Line(x + w - 14, y + h - 4, x + w - 28, roof_y, strokeColor=accent, strokeWidth=2))
+    drawing.add(Circle(x + w - 28, roof_y, 3.5, fillColor=accent, strokeColor=accent, strokeWidth=1))
+
+
+def quarantine_box(drawing, x, y, w, h):
+    drawing.add(Rect(x, y, w, h, rx=12, ry=12, fillColor=SOFT_AMBER, strokeColor=AMBER, strokeWidth=2))
+    divider_x = x + 72
+    drawing.add(Line(divider_x, y + 10, divider_x, y + h - 10, strokeColor=AMBER, strokeWidth=1.2))
+    cage_trap(drawing, x + 6, y + 11, 58, 40, AMBER, WARN)
+    intrusion_icon(drawing, x + 35, y + 29, WARN, halo_color=AMBER, scale=0.72)
+    drawing.add(
+        String(
+            x + 118,
+            y + h - 25,
+            "Quarantine",
+            fontName="Helvetica-Bold",
+            fontSize=11.5,
+            fillColor=INK,
+            textAnchor="middle",
+        )
+    )
+    drawing.add(
+        String(
+            x + 118,
+            y + h - 41,
+            "honeypot",
+            fontName="Helvetica-Bold",
+            fontSize=11.5,
+            fillColor=INK,
+            textAnchor="middle",
+        )
+    )
+    drawing.add(
+        String(
+            x + 118,
+            y + 14,
+            "trap / inspect",
+            fontName="Helvetica",
+            fontSize=10.5,
+            fillColor=MUTED,
+            textAnchor="middle",
+        )
+    )
+
+
+def status_badge(drawing, cx, cy, fill, symbol, symbol_color=BG):
+    drawing.add(Circle(cx, cy, 15, fillColor=fill, strokeColor=fill, strokeWidth=1))
+    if symbol == "x":
+        drawing.add(Line(cx - 6, cy - 6, cx + 6, cy + 6, strokeColor=symbol_color, strokeWidth=2.4))
+        drawing.add(Line(cx - 6, cy + 6, cx + 6, cy - 6, strokeColor=symbol_color, strokeWidth=2.4))
+    elif symbol == "check":
+        drawing.add(Line(cx - 7, cy - 1, cx - 1, cy - 7, strokeColor=symbol_color, strokeWidth=2.4))
+        drawing.add(Line(cx - 1, cy - 7, cx + 8, cy + 5, strokeColor=symbol_color, strokeWidth=2.4))
+
+
 def opener_host_box(drawing, x, y, w, h, accent, fill, title, lines):
     drawing.add(Rect(x, y, w, h, rx=16, ry=16, fillColor=fill, strokeColor=accent, strokeWidth=1.8))
     add_text(drawing, x + 16, y + h - 25, title, 14, INK, "Helvetica-Bold")
@@ -229,6 +379,8 @@ def build_opener_comparison():
 
     soft_panel(drawing, left_x, panel_y, panel_w, panel_h, HexColor("#fcf4f4"))
     soft_panel(drawing, right_x, panel_y, panel_w, panel_h, HexColor("#f4f9fc"))
+    status_badge(drawing, left_x + panel_w - 28, panel_y + panel_h - 26, WARN, "x")
+    status_badge(drawing, right_x + panel_w - 28, panel_y + panel_h - 26, HOT, "check")
 
     add_text(drawing, left_x + 34, 278, "Unmediated (Direct Risk)", 17, INK, "Helvetica-Bold")
     add_text(drawing, right_x + 34, 278, "Mediated (ZitPit Safety)", 17, INK, "Helvetica-Bold")
@@ -241,19 +393,22 @@ def build_opener_comparison():
     arrow(drawing, left_x + 150, 207, left_x + 205, 182, color=WARN)
     arrow(drawing, left_x + 150, 127, left_x + 205, 158, color=WARN)
     arrow(drawing, left_x + 355, 170, left_x + 410, 170, color=WARN, width=3.1)
+    arrow(drawing, left_x + 360, 212, left_x + 416, 212, color=WARN, width=2.4, dashed=True)
+    intrusion_icon(drawing, left_x + 388, 214, WARN, scale=0.9)
     add_text(drawing, left_x + 198, 52, "Direct path to host", 13, WARN, "Helvetica-Bold")
 
     node(right_x + 26, 182, 120, 50, "Human\nrequest", FAST, fill=BG, title_size=12.5)
     node(right_x + 26, 102, 120, 50, "Agent\nrequest", FAST, fill=BG, title_size=12.5)
     node(right_x + 188, 140, 132, 60, "ZitPit gate", FAST, fill=BG, subtitle="policy check", title_size=12.5)
-    node(right_x + 344, 134, 156, 72, "Quarantine +\nhoneypot", AMBER, fill=SOFT_AMBER, subtitle="hold / inspect", title_size=11.5)
     node(right_x + 388, 52, 112, 60, "Protected\nhost", FAST, fill=BG, title_size=12.5)
+    quarantine_box(drawing, right_x + 344, 134, 156, 72)
 
     arrow(drawing, right_x + 146, 207, right_x + 188, 178, color=FAST)
     arrow(drawing, right_x + 146, 127, right_x + 188, 162, color=FAST)
     arrow(drawing, right_x + 320, 170, right_x + 344, 170, color=FAST)
     arrow(drawing, right_x + 422, 134, right_x + 444, 112, color=FAST)
-    add_text(drawing, right_x + 148, 44, "Held before host execution", 13, FAST, "Helvetica-Bold")
+    arrow(drawing, right_x + 322, 216, right_x + 356, 196, color=AMBER, width=2.4, dashed=True)
+    add_text(drawing, right_x + 126, 44, "Threat trapped before host execution", 13, FAST, "Helvetica-Bold")
 
     return drawing
 
