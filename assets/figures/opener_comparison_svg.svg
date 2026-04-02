@@ -18,6 +18,12 @@
       .rightLabel { font: 700 13px/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif; fill: #3a7ca5; }
       .leftArrow { stroke: #bc4b51; stroke-width: 4; fill: none; marker-end: url(#arrowLeft); }
       .rightArrow { stroke: #3a7ca5; stroke-width: 4; fill: none; marker-end: url(#arrowRight); }
+      .amberArrow { stroke: #d49b32; stroke-width: 3; fill: none; stroke-dasharray: 8 6; marker-end: url(#arrowAmber); }
+      .intrusion { stroke: #bc4b51; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .intrusionHalo { stroke: #d49b32; stroke-width: 1.6; fill: none; stroke-dasharray: 6 4; }
+      .intrusionHaloRed { stroke: #bc4b51; stroke-width: 1.6; fill: none; stroke-dasharray: 6 4; }
+      .trapLine { stroke: #d49b32; stroke-width: 1.6; fill: none; stroke-linecap: round; }
+      .badgeX, .badgeCheck { stroke: #ffffff; stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     </style>
 
     <marker id="arrowLeft" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
@@ -26,6 +32,9 @@
     <marker id="arrowRight" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#3a7ca5" />
     </marker>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d49b32" />
+    </marker>
   </defs>
 
   <rect class="bg" x="0" y="0" width="1200" height="470" />
@@ -33,6 +42,10 @@
 
   <rect class="leftPanel" x="40" y="74" width="540" height="314" rx="16" ry="16" />
   <rect class="rightPanel" x="620" y="74" width="540" height="314" rx="16" ry="16" />
+  <circle cx="552" cy="100" r="15" fill="#bc4b51" />
+  <path class="badgeX" d="M 546 94 L 558 106 M 546 106 L 558 94" />
+  <circle cx="1132" cy="100" r="15" fill="#2a9d6f" />
+  <path class="badgeCheck" d="M 1124 100 L 1130 106 L 1140 94" />
 
   <text class="panelTitle" x="74" y="118">Unmediated (Direct Risk)</text>
   <text class="panelTitle" x="654" y="118">Mediated (ZitPit Safety)</text>
@@ -54,6 +67,10 @@
   <path class="leftArrow" d="M 190 234 L 248 270" />
   <path class="leftArrow" d="M 190 314 L 248 286" />
   <path class="leftArrow" d="M 398 278 L 452 278" />
+  <path class="leftArrow" d="M 400 236 L 452 236" style="stroke-width:3; stroke-dasharray:8 6;" />
+  <circle class="intrusionHaloRed" cx="420" cy="233" r="16" />
+  <circle class="intrusion" cx="420" cy="241" r="8" />
+  <path class="intrusion" d="M 411 236 L 429 236 M 417 231 L 423 231 M 420 233 L 420 218 M 420 234 L 410 245 M 420 234 L 430 245 M 416 242 L 413 246 M 424 242 L 427 246" />
   <text class="leftLabel" x="310" y="360" text-anchor="middle">Direct path to host</text>
 
   <rect class="rightBox" x="652" y="206" width="118" height="56" rx="12" ry="12" />
@@ -68,9 +85,16 @@
   <text class="boxText" x="711" y="328" text-anchor="middle">request</text>
   <text class="boxText" x="883" y="272" text-anchor="middle">ZitPit gate</text>
   <text class="small" x="883" y="292" text-anchor="middle">policy check</text>
-  <text class="boxText" x="1042" y="266" text-anchor="middle">Quarantine +</text>
-  <text class="boxText" x="1042" y="284" text-anchor="middle">honeypot</text>
-  <text class="small" x="1042" y="304" text-anchor="middle">hold / inspect</text>
+  <path class="trapLine" d="M 980 286 L 1018 286 M 984 254 L 1014 254 M 988 254 L 988 286 M 1000 254 L 1000 286 M 1012 254 L 1012 286" />
+  <path class="trapLine" d="M 1016 248 L 1026 254 L 1036 248" />
+  <circle cx="1026" cy="254" r="3" fill="#bc4b51" />
+  <line class="trapLine" x1="1036" y1="248" x2="1036" y2="304" />
+  <circle class="intrusionHalo" cx="1000" cy="265" r="14" />
+  <circle class="intrusion" cx="1000" cy="272" r="7" />
+  <path class="intrusion" d="M 992 268 L 1008 268 M 997 263 L 1003 263 M 1000 265 L 1000 251 M 1000 267 L 991 277 M 1000 267 L 1009 277 M 996 273 L 993 277 M 1004 273 L 1007 277" />
+  <text class="boxText" x="1078" y="267" text-anchor="middle">Quarantine</text>
+  <text class="boxText" x="1078" y="285" text-anchor="middle">honeypot</text>
+  <text class="small" x="1078" y="304" text-anchor="middle">trap / inspect</text>
   <text class="boxText" x="1051" y="164" text-anchor="middle">Protected</text>
   <text class="boxText" x="1051" y="182" text-anchor="middle">host</text>
 
@@ -78,5 +102,6 @@
   <path class="rightArrow" d="M 770 314 L 820 286" />
   <path class="rightArrow" d="M 946 278 L 964 278" />
   <path class="rightArrow" d="M 1042 238 L 1051 202" />
-  <text class="rightLabel" x="894" y="374" text-anchor="middle">Held before host execution</text>
+  <path class="amberArrow" d="M 948 232 L 986 255" />
+  <text class="rightLabel" x="904" y="374" text-anchor="middle">Threat trapped before host execution</text>
 </svg>

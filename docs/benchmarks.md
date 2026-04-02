@@ -2,40 +2,30 @@
 
 ZitPit benchmarks are meant to answer one question: how fast is the safe path when the same artifact is requested again?
 
+Today, the public timing benchmark is the Git smart-HTTP intake path. Coverage for other attack families lives in the benchmark matrix and battle-pack roadmap rather than in one latency chart.
+
 We measure three timing classes for Git intake:
 - `web`: direct upstream request
 - `cache`: ZitPit approved disk-cache hit
 - `hot-cache`: ZitPit in-memory hot-cache hit
 
-## Suites
+## What Is Publicly Proven Today
 
-The benchmark and battle suites now cover the main intake surfaces ZitPit is designed to mediate:
+- Git smart-HTTP intake mediation
+- approved disk-cache reuse
+- in-memory hot-cache reuse
+- resolved HEAD SHA capture for benchmarked repos
+- median and p95 reporting for the current five-repo benchmark set
 
-- `git`
-- `npm`
-- `pypi`
-- `go`
-- `cargo`
-- `actions`
-- `shell`
-- `browser`
-- `workspace`
+Use [`BENCHMARKS.md`](../BENCHMARKS.md) as the source of truth for broader current-versus-roadmap claim boundaries across npm, PyPI, Cargo, GitHub Actions, raw HTTP installers, and repo-open surfaces.
 
-## Benchmark Matrix
+## Benchmark Families Versus Claim Support
 
-| Suite | What it proves | Claim support | Status |
-| --- | --- | --- | --- |
-| Git | Git smart-HTTP intake, approved cache, hot cache | First-seen Git repos can be mediated and accelerated locally | Supported |
-| npm | Registry package admission and install-script control | Package manager intake is policy-governed | Supported |
-| PyPI | Wheel/sdist policy and quarantine | Python source and wheel intake is mediated | Supported |
-| Go | Module/proxy intake | Non-Git module fetches are covered | Supported |
-| Cargo | Source replacement and build-script control | Rust build-time execution is mediated | Supported |
-| GitHub Actions | Immutable SHA vs mutable refs | Workflow intake is policy-checked | Supported |
-| Shell | Raw HTTP installer fetches | `curl | bash` style ingress is covered | Supported |
-| Browser | Operator and web-flow scrutiny | Browser-side request capture is covered | Supported |
-| Workspace | Repo-open surfaces such as `.claude/`, `.mcp.json`, devcontainers | Agent/workspace configuration is treated as intake | Supported |
+ZitPit has battle suites and scenario packs for several families, but those do not all imply full current implementation support.
 
-Anything outside those families is roadmap-only unless a benchmark row explicitly proves it.
+- `git`: publicly benchmarked and supported today
+- `npm`, `pypi`, `cargo`, `actions`, `shell`, `workspace`: represented in the matrix as partial, planned, or roadmap-backed families depending on the exact claim
+- anything not mapped in [`BENCHMARKS.md`](../BENCHMARKS.md): roadmap-only or out of scope for public claims
 
 ## Running Benchmarks
 
@@ -62,5 +52,4 @@ cargo run -p xtask -- bench run --repo git --repo go --repo cpython --samples 3
 - Report median and p95 for each timing class.
 - Keep `web`, `cache`, and `hot-cache` separate.
 - Record the resolved HEAD SHA for each repo.
-- Do not treat an unmeasured surface as publicly claimed coverage.
-
+- Do not treat a battle pack or planned family as publicly claimed coverage unless [`BENCHMARKS.md`](../BENCHMARKS.md) says the current implementation supports that claim.
