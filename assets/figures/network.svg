@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">ZitPit control-plane diagram</title>
+  <desc id="desc">Simple flow diagram showing agent, gateway, hot cache, cold lane, and publish or revocation loop.</desc>
+
+  <defs>
+    <style>
+      .bg { fill: #fbfaf7; }
+      .title { font: 700 28px/1.2 "Inter", "Helvetica Neue", Arial, sans-serif; fill: #132238; }
+      .subtitle { font: 400 15px/1.4 "Inter", "Helvetica Neue", Arial, sans-serif; fill: #516170; }
+      .box { fill: #ffffff; stroke: #d4dbe3; stroke-width: 2; }
+      .boxTitle { font: 700 18px/1.2 "Inter", "Helvetica Neue", Arial, sans-serif; fill: #132238; }
+      .boxBody { font: 400 13px/1.35 "Inter", "Helvetica Neue", Arial, sans-serif; fill: #516170; }
+      .arrow { stroke: #5f6b7a; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .dashArrow { stroke: #5f6b7a; stroke-width: 3; fill: none; stroke-dasharray: 8 7; marker-end: url(#arrow); }
+      .label { font: 600 13px/1.2 "Inter", "Helvetica Neue", Arial, sans-serif; fill: #526170; }
+      .footer { font: 400 13px/1.4 "Inter", "Helvetica Neue", Arial, sans-serif; fill: #667585; }
+    </style>
+
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5f6b7a" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1200" height="420" />
+
+  <text class="title" x="70" y="46">ZitPit control-plane diagram</text>
+  <text class="subtitle" x="70" y="72">A single intake gateway fans out to a hot path for approved artifacts and a cold lane for first-seen or untrusted artifacts</text>
+
+  <!-- Boxes -->
+  <rect class="box" x="60" y="160" width="180" height="88" rx="16" ry="16" />
+  <text class="boxTitle" x="150" y="193" text-anchor="middle">Agent / IDE / CI</text>
+  <text class="boxBody" x="150" y="216" text-anchor="middle">requests code, config, and tools</text>
+
+  <rect class="box" x="320" y="150" width="220" height="108" rx="16" ry="16" />
+  <text class="boxTitle" x="430" y="190" text-anchor="middle">ZitPit Gateway</text>
+  <text class="boxBody" x="430" y="213" text-anchor="middle">policy, provenance, and cache routing</text>
+
+  <rect class="box" x="620" y="70" width="190" height="72" rx="16" ry="16" />
+  <text class="boxTitle" x="715" y="103" text-anchor="middle">Hot Cache</text>
+  <text class="boxBody" x="715" y="124" text-anchor="middle">approved immutable artifacts</text>
+
+  <rect class="box" x="620" y="220" width="210" height="100" rx="16" ry="16" />
+  <text class="boxTitle" x="725" y="258" text-anchor="middle">Cold Lane</text>
+  <text class="boxBody" x="725" y="281" text-anchor="middle">Mirage Lab evidence engine</text>
+
+  <rect class="box" x="910" y="145" width="220" height="92" rx="16" ry="16" />
+  <text class="boxTitle" x="1020" y="180" text-anchor="middle">Publish / Revocation</text>
+  <text class="boxBody" x="1020" y="203" text-anchor="middle">release firewall and recall loop</text>
+
+  <!-- Arrows -->
+  <path class="arrow" d="M 240 204 L 320 204" />
+  <text class="label" x="281" y="188" text-anchor="middle">first-seen</text>
+
+  <path class="arrow" d="M 540 178 L 620 106" />
+  <text class="label" x="575" y="146" text-anchor="middle">approved hit</text>
+
+  <path class="arrow" d="M 540 218 L 620 252" />
+  <text class="label" x="574" y="234" text-anchor="middle">quarantine</text>
+
+  <path class="dashArrow" d="M 620 286 L 540 238" />
+  <text class="label" x="575" y="276" text-anchor="middle">evidence</text>
+
+  <path class="arrow" d="M 540 226 L 910 190" />
+  <text class="label" x="727" y="176" text-anchor="middle">publish</text>
+
+  <path class="dashArrow" d="M 910 216 C 820 290, 630 320, 430 262" />
+  <text class="label" x="730" y="308" text-anchor="middle">revocation feed</text>
+
+  <text class="footer" x="70" y="368">Simple enough to review, specific enough to explain: approved artifacts go fast, unknown artifacts go cold.</text>
+</svg>

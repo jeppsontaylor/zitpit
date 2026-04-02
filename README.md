@@ -8,6 +8,10 @@ ZitPit is a **Mandatory Artifact Firewall and Governed Execution Plane** for AI-
 
 In the age of autonomous agents, "first-seen" external code must transition from an *execution event* into a *policy event*. ZitPit prevents unapproved third-party artifacts from executing on protected developer machines or CI runners before digest resolution, policy evaluation, and quarantine.
 
+Current public evidence shows why the safe path needs to be fast: the five-repo benchmark snapshot in [`docs/benchmarks/latest.md`](docs/benchmarks/latest.md) shows `web` at 413-821 ms, approved cache at 30-34 ms, and hot cache at 14-16 ms, with `N=1` sample per repo.
+
+The draft paper lives in [`papers/publication-draft.md`](papers/publication-draft.md), and the public claim boundaries live in [`CLAIMS.md`](CLAIMS.md) and [`BENCHMARKS.md`](BENCHMARKS.md).
+
 ---
 
 ## 🛡️ The Paradigm Shift
@@ -23,7 +27,7 @@ When AI coding agents (Antigravity, Cursor, Claude, Codex) operate at speed, an 
 ZitPit protects your supply chain across four absolute boundaries:
 
 ### 1. Acquire (The Universal Artifact Gateway)
-All external dependency traffic (npm, PyPI, Cargo, Go, OCI, Git) resolves through `zitpit-gateway`. Mutable references (e.g., tags, `latest`) are treated as policy exceptions. Everything is governed strictly by exact immutable digests.
+All external dependency traffic ZitPit mediates (npm, PyPI, Cargo, Go, OCI, Git) resolves through `zitpit-gateway`. Mutable references (e.g., tags, `latest`) are treated as policy exceptions. Everything is governed strictly by exact immutable digests.
 
 ### 2. Build (The Cold Lane)
 Install-time and build-time scripts (e.g., `postinstall`, `build.rs`) *never* run dynamically on the protected host. They are quarantined and executed in the **Mirage Lab** - our evidence engine - until explicit policy allows them. 
@@ -33,6 +37,46 @@ Agent tool use and execution privileges are policy-controlled (e.g., via `PreToo
 
 ### 4. Publish (The Release Firewall)
 An optional publisher-side release gate inspects artifacts before shipment, blocking accidental internal packaging leaks (e.g., source maps, keys, tokens).
+
+The current repo proves the Git intake path, the local cache, the hot cache, and the benchmark harness; the broader artifact-native lanes in this section are the V2 target.
+
+---
+
+## 📸 Proof Gallery
+
+### Agent Setup
+
+<p align="center">
+  <img src="assets/cursor_zitt.png" alt="Cursor setup screenshot" width="380" />
+</p>
+
+This screenshot shows the kind of protected workspace setup ZitPit is built to guard. The agent-facing bootstrap, shell config, and repo-open surface all matter because they determine whether first-seen code can reach execution on the host.
+
+### Operator Console
+
+<p align="center">
+  <img src="assets/zitt_TUI.png" alt="ZitPit TUI screenshot" width="760" />
+</p>
+
+The TUI is the operator's live view into the intake perimeter. It is where approved artifacts, pending quarantine jobs, and policy decisions become visible instead of hiding inside logs.
+
+### Benchmark Snapshot
+
+<p align="center">
+  <img src="assets/figures/speedup.svg" alt="Current five-repo benchmark snapshot" width="760" />
+</p>
+
+The benchmark chart shows the claim we are making publicly: approved cache hits and hot-cache hits are dramatically faster than direct upstream fetches, so the safe path is not the slow path.
+
+### Control Plane
+
+<p align="center">
+  <img src="assets/figures/network.svg" alt="ZitPit control-plane diagram" width="760" />
+</p>
+
+The network diagram shows the control flow at a glance: agent and CI requests enter the gateway, approved artifacts take the hot path, first-seen artifacts fall into the cold lane, and publish or revocation signals flow back into policy.
+
+The current public benchmark matrix is the claim boundary. See [`BENCHMARKS.md`](BENCHMARKS.md) for the supported surfaces and [`CLAIMS.md`](CLAIMS.md) for the exact public wording.
 
 ---
 
@@ -48,10 +92,10 @@ An optional publisher-side release gate inspects artifacts before shipment, bloc
 ## 🏁 Quickstart
 
 > [!CAUTION]
-> ZitPit is actively migrating to the V2 architecture. The quickstart below demonstrates the V1 baseline Git/SSH proxy functionality. Let the benchmark matrix guide public claims and the V2 migration path.
+> ZitPit is actively migrating to the V2 architecture. The quickstart below demonstrates the current MVP Git intake path. Let [`BENCHMARKS.md`](BENCHMARKS.md) and [`CLAIMS.md`](CLAIMS.md) guide public claims and the V2 migration path.
 
 ### 1. Verification Bootstrap
-Always verify ZitPit before running. This script compares the local hash against Git and our independent mirror:
+Always verify ZitPit before running. This is a bootstrap integrity check, not the full provenance model:
 
 ```bash
 sh scripts/verify_hash.sh
