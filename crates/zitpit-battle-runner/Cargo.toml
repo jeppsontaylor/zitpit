@@ -1,0 +1,22 @@
+[package]
+name = "zitpit-battle-runner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+zitpit-battle-types = { path = "../zitpit-battle-types" }
+zitpit-config = { path = "../zitpit-config" }
+zitpit-core = { path = "../zitpit-core" }
+
+[dev-dependencies]
+tokio.workspace = true

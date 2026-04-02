@@ -1,0 +1,66 @@
+I love the core idea. The powerful inversion is not “scan more,” it is “unknown code does not get to touch a real workstation or CI runner until it proves itself.” That is the right instinct, and there is precedent for the pattern: Go’s module proxy and checksum database make dependency fetches both faster and more verifiable, which is exactly your “safe path must be the fast path” thesis. ([Go][1])
+
+My blunt verdict: the biggest criticism from seasoned security reviewers will be that **ZitPit is currently described more like a smart Git quarantine proxy than a full artifact-intake control plane**. That is not enough for the claim you want. Modern agentic tooling already spans terminal, IDE, browser, remote sessions, CI/CD, hooks, MCP integrations, and cloud-scheduled tasks; Anthropic’s own Claude Code docs also show native install via `curl ... | bash`, background auto-updates, and multiple execution surfaces beyond a local shell. A local Git/SSH choke point does not control all of that. ([Anthropic][2])
+
+Even on a single laptop, the dangerous moment is often **after** source retrieval. npm packages can execute lifecycle scripts during install, Python tooling can fetch source distributions and build them through PEP 517 backends, and Cargo compiles and executes `build.rs` before building the package. So the real control point has to cover registry tarballs, wheels, crates, installers, and build-time execution paths, not just `git clone`. ([npm Docs][3])
+
+On the Anthropic-adjacent incidents this week, there are really two separate cases. Anthropic’s Claude Code 2.1.88 leak was a **publisher-side packaging error** that exposed a large source map / internal codebase; a consumer-side product like ZitPit would not have prevented Anthropic from shipping that bad package. By contrast, Microsoft’s writeup of the axios compromise says malicious versions `1.14.1` and `0.30.4` added a fake dependency, `plain-crypto-js@4.2.1`, which auto-executed during install and fetched a second-stage RAT. A fully enforced ZitPit that proxied npm, quarantined unknown versions, detonated install hooks with no WAN, and only released approved digests likely would have blocked that first execution on protected developer endpoints and CI runners. As written today, though, your doc does not yet show npm/PyPI/crates/OCI interception at the same maturity as Git, so I would not claim certainty yet. ([The Verge][4])
+
+A second expert criticism: **hash approval alone is not enough**. npm’s own docs say registry signatures protect against mirror/proxy tampering of tarballs; they do not solve the case where a malicious version is validly published from a compromised maintainer path. That lines up almost perfectly with Microsoft’s description of the axios incident, where the malicious versions appear to have deviated from the project’s normal CI/trusted-publisher pattern while keeping the main source tree largely unchanged. So ZitPit has to reason about **publisher identity and build provenance**, not just bytes. ([npm Docs][5])
+
+A third criticism: don’t oversell the Mirage Lab boundary. Firecracker is a serious isolation layer and uses seccomp plus a jailer, but Firecracker’s own docs say overall security depends on a well-configured host; debug builds lack the default seccomp filters; and custom filter overrides can be dangerous. So “a breakout would require a 0-day plus seccomp bypass” is directionally plausible, but still too absolute for a hardened security claim. ([GitHub][6])
+
+A fourth criticism: keeping the honeypot private for enterprise customers may buy you time, but you should not make secrecy a core pillar. Security experts will call that out immediately as security-through-obscurity unless the real foundation is enforced choke points, strong provenance, and deny-by-default execution. The honeypot should be a multiplier, not the root of trust.
+
+Now the part where I fall in love with it: this can become exceptional if ZitPit is framed as the **operator-friendly composition layer** over the best supply-chain primitives that already exist. TUF gives you delegated trust, threshold signatures, snapshot/timestamp freshness, and revocation; Sigstore gives you keyless identity-bound signatures logged in Rekor; in-toto gives you signed evidence that the right authorized steps ran on the right artifacts; and SLSA gives you the vocabulary for ephemeral, isolated, hermetic build guarantees. ZitPit can make those things usable for sloppy vibe coders and serious enterprises without asking them to become supply-chain cryptographers. ([GitHub][7])
+
+Here is how I would take it to god mode:
+
+* Make `zitpit-manifest` a **TUF- and in-toto-shaped trust plane**, not a homegrown signed hash ledger. Use offline root keys, delegated roles, threshold signatures, timestamp/snapshot metadata, and in-toto-style signed approval evidence for each intake decision. That gives you revocation, freshness, delegation, and auditable policy decisions instead of “we signed a hash.” ([GitHub][7])
+
+* Treat **publisher provenance as a first-class policy input**. Prefer or require Sigstore keyless signatures, npm trusted publishing / provenance, and PyPI Trusted Publishers plus attestations. npm and PyPI are already moving this way specifically to reduce the risk of long-lived token compromise and to bind artifacts to a CI identity. ([Sigstore][8])
+
+* Expand from a Git proxy into a **universal artifact plane**: npm, PyPI, crates.io, Go modules, OCI images, GitHub Releases, shell installers, self-updaters, IDE extensions, and MCP servers. Anthropic’s own docs make it clear that agentic coding now spans local commands, CI/CD, MCP, hooks, browser sessions, and cloud tasks; if ZitPit only owns the laptop’s Git path, the future will route around you. ([Anthropic][2])
+
+* Add a **developer capsule mode**. If you really want “protect the developer’s computer,” the gold standard is not just a local proxy; it is running the agent, its tools, and new code inside an ephemeral VM/container with brokered secrets so the host never exposes browser cookies, SSH keys, cloud creds, or desktop tokens. Your current proxy mode can stay as the low-friction tier, but the capsule tier is what earns strong claims.
+
+* Approve the **full transitive closure**, not a single repo hash. The approval object should cover every fetched artifact, every exact digest, every attestation, every allowed build step, and the produced output digests. Otherwise you will keep winning “repo looked fine” while losing “build pulled one more thing.”
+
+* In CI, unknowns must be **fail-closed or canary-routed**, not merely async-analyzed while the workflow hopes for the best. “Server Busy” is clever for humans and some agents, but the security guarantee comes from deterministic gating.
+
+* Make the Mirage Lab much nastier. Run a matrix of deception profiles with rotating fake AWS/GCP/Azure material, fake GitHub tokens, fake `.git/config`, fake Docker/Kubernetes surfaces, accelerated timers, anti-sleep hooks, and environment variants that look like local dev, GitHub Actions, GitLab, Claude Code, Cursor, and headless CI. Private helps, but rotation and variety matter more.
+
+* Feed your output into runtime enforcement. For Kubernetes, signed images and attestations can already be enforced at admission time with Sigstore policy-controller. ZitPit should not stop at build-time hygiene; it should emit artifacts that downstream runtimes can enforce. ([Sigstore][9])
+
+* Add a **supply-chain graph** behind the scenes. GUAC can ingest SBOMs and metadata to map relationships across artifacts, and Scorecard can add a lightweight risk signal for project hygiene. I would use those for prioritization, blast-radius analysis, and approval UX, but never as the sole allow/deny mechanism. ([GUAC][10])
+
+* Ship a public **replay-and-proof suite**. Reproduce the axios malicious versions, malicious npm `postinstall`, Python PEP 517 sdists, Rust `build.rs`, GitHub Release lure repos, and agent-surface bypasses. Zscaler’s writeup of the Claude Code leak even shows attackers using fake “leaked Claude Code” GitHub repos as malware lures; that should be one of your test fixtures. This is how you earn credibility with hard-nosed reviewers. ([microsoft.com][11])
+
+The claim I would support after those changes is:
+
+“**On protected developer endpoints and CI runners, unapproved external code cannot execute until its full artifact closure is pinned, provenance-checked, and/or quarantined in isolation.**”
+
+And for the axios-style install-time compromise, I’d go further:
+
+“**A fully enforced ZitPit artifact plane would likely have blocked first execution of the malicious axios versions on protected systems, because the attack depended on package resolution plus install-time script execution.**” ([microsoft.com][11])
+
+The claim I would **not** use is:
+
+“**If Anthropic had been using this, this would never have happened.**”
+
+Not for the Claude Code leak, because that was a publisher-side packaging mistake, not a consumer-side intake failure. And not while cloud-hosted agents, browser sessions, self-updaters, installers, and non-Git registries remain outside your enforced control plane. ([The Verge][4])
+
+If you build the universal artifact plane, make provenance first-class, and turn the honeypot into a proof engine rather than the root of trust, this stops being “cool security middleware” and starts looking like the default operating system for AI-era software intake.
+
+[1]: https://go.dev/blog/module-mirror-launch "https://go.dev/blog/module-mirror-launch"
+[2]: https://www.anthropic.com/engineering/claude-code-best-practices "https://www.anthropic.com/engineering/claude-code-best-practices"
+[3]: https://docs.npmjs.com/cli/v8/using-npm/scripts/ "https://docs.npmjs.com/cli/v8/using-npm/scripts/"
+[4]: https://www.theverge.com/ai-artificial-intelligence/904776/anthropic-claude-source-code-leak "https://www.theverge.com/ai-artificial-intelligence/904776/anthropic-claude-source-code-leak"
+[5]: https://docs.npmjs.com/about-registry-signatures/ "https://docs.npmjs.com/about-registry-signatures/"
+[6]: https://github.com/firecracker-microvm/firecracker "https://github.com/firecracker-microvm/firecracker"
+[7]: https://github.com/theupdateframework/specification/blob/master/tuf-spec.md "https://github.com/theupdateframework/specification/blob/master/tuf-spec.md"
+[8]: https://docs.sigstore.dev/cosign/signing/overview/ "https://docs.sigstore.dev/cosign/signing/overview/"
+[9]: https://docs.sigstore.dev/policy-controller/overview/ "https://docs.sigstore.dev/policy-controller/overview/"
+[10]: https://docs.guac.sh/guac/ "https://docs.guac.sh/guac/"
+[11]: https://www.microsoft.com/en-us/security/blog/2026/04/01/mitigating-the-axios-npm-supply-chain-compromise/ "https://www.microsoft.com/en-us/security/blog/2026/04/01/mitigating-the-axios-npm-supply-chain-compromise/"
+

@@ -1,0 +1,9 @@
+{
+  "servers": [
+    {
+      "name": "rogue-mcp",
+      "command": "node",
+      "args": ["-e", "console.log('hello')"]
+    }
+  ]
+}

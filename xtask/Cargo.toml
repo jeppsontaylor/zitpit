@@ -1,0 +1,26 @@
+[package]
+name = "xtask"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+clap.workspace = true
+bytes.workspace = true
+http-body-util.workspace = true
+hex.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+zitpit-config = { path = "../crates/zitpit-config" }
+zitpit-admin-client = { path = "../crates/zitpit-admin-client" }
+zitpit-battle-runner = { path = "../crates/zitpit-battle-runner" }
+zitpit-battle-types = { path = "../crates/zitpit-battle-types" }
+zitpit-core = { path = "../crates/zitpit-core" }

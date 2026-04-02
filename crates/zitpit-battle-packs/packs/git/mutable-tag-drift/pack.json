@@ -1,0 +1,38 @@
+{
+  "pack_id": "git-mutable-tag-drift",
+  "title": "Mutable Git tag drift",
+  "attack_family": "git_integrity",
+  "public_tier": "public_core",
+  "runtime_family": "rust",
+  "artifact_type": "git_repo",
+  "artifact": {
+    "ecosystem": "git",
+    "source": "https://github.com/jeppsontaylor/mutable-tag-drift.git",
+    "requested_selector": "refs/tags/v1.2.3",
+    "selector_kind": "tag"
+  },
+  "incident_refs": ["public/mutable-tag-abuse"],
+  "technique_refs": ["tag-drift", "mutable-release-pointer"],
+  "control_pair_id": "control-benign-git-release",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": [],
+  "required_personas": ["developer_workstation"],
+  "required_scenarios": [
+    { "name": "git_fetch_tag", "detonation": "cli_smoke", "phase": "fetch" }
+  ],
+  "suite_tags": ["fast", "queue", "public_core", "git_core"],
+  "execution": { "browser_required": false, "vm_required": false, "queue_required": true, "runner_mode": "queue_full" },
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": { "required": ["git_ref_drift"], "allowed_false_positives": [] },
+  "control_expectations": { "require_clean_verdict": true, "max_shared_tripwires": 0, "notes": ["stable release tag should not drift"] },
+  "evidence_minimums": {
+    "require_captured_request": true, "require_quarantine_job": true, "require_lab_run": true,
+    "require_evidence_bundle": true, "require_feed_visibility": true, "require_browser_trace": false
+  },
+  "timing": { "max_queue_latency_ms": 2000, "max_detonation_startup_ms": 2000, "max_verdict_completion_ms": 2000 },
+  "files": ["README.md"],
+  "steps": [
+    { "step_id": "detect_tag_move", "detail": "requested tag resolves to a different commit than the approved release", "phase": "fetch", "process_lineage": ["git fetch --tags"], "command": "git ls-remote --tags", "tripwire": "git_ref_drift", "severity": "high" }
+  ]
+}

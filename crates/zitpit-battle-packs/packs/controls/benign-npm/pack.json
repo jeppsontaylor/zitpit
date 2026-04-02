@@ -1,0 +1,64 @@
+{
+  "pack_id": "control-benign-npm-install",
+  "title": "Benign npm install control",
+  "attack_family": "control",
+  "public_tier": "public_core",
+  "runtime_family": "control",
+  "artifact_type": "npm_package",
+  "artifact": {
+    "ecosystem": "npm",
+    "source": "https://registry.npmjs.org/zitpit-benign-control",
+    "requested_selector": "1.0.0",
+    "selector_kind": "exact_version"
+  },
+  "incident_refs": [],
+  "technique_refs": ["control/npm-install"],
+  "control_pair_id": null,
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": [],
+  "required_personas": ["developer_workstation"],
+  "required_scenarios": [
+    { "name": "npm_install", "detonation": "install_build", "phase": "install" }
+  ],
+  "suite_tags": ["fast", "artifact", "queue", "controls", "public_core"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": true,
+    "runner_mode": "queue_full"
+  },
+  "expected_verdict": { "verdict": "clean" },
+  "expected_tripwires": {
+    "required": [],
+    "allowed_false_positives": []
+  },
+  "control_expectations": {
+    "require_clean_verdict": true,
+    "max_shared_tripwires": 0,
+    "notes": []
+  },
+  "evidence_minimums": {
+    "require_captured_request": true,
+    "require_quarantine_job": true,
+    "require_lab_run": true,
+    "require_evidence_bundle": true,
+    "require_feed_visibility": true,
+    "require_browser_trace": false
+  },
+  "timing": {
+    "max_queue_latency_ms": 2000,
+    "max_detonation_startup_ms": 2000,
+    "max_verdict_completion_ms": 2000
+  },
+  "files": ["package.json", "index.js"],
+  "steps": [
+    {
+      "step_id": "print_help",
+      "detail": "package prints usage text without touching secrets or the network",
+      "phase": "cli",
+      "process_lineage": ["node index.js --help"],
+      "command": "node index.js --help"
+    }
+  ]
+}

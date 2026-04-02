@@ -1,0 +1,11 @@
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssh-server git curl ca-certificates procps iptables tmux \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /var/run/sshd /run/zitpit \
+    && useradd -m -d /home/zitpit -s /bin/bash zitpit \
+    && install -d -o zitpit -g zitpit -m 0700 /home/zitpit/.ssh
+COPY deploy/workspace/ /usr/local/share/zitpit-workspace/
+RUN install -m 0755 /usr/local/share/zitpit-workspace/entrypoint.sh /usr/local/bin/zitpit-workspace-entrypoint
+EXPOSE 22
+ENTRYPOINT ["/usr/local/bin/zitpit-workspace-entrypoint"]

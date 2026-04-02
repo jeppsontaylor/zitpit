@@ -1,0 +1,11 @@
+[package]
+name = "zitpit-flags"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+clap.workspace = true
+zitpit-config = { path = "../zitpit-config" }
+

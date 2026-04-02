@@ -1,0 +1,2 @@
+name: Synthetic PR Target Exfil
+on: pull_request_target

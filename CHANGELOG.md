@@ -1,0 +1,23 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- [x] Initial commit: Rust workspace and core schemas.
+- [x] Signed manifest envelopes.
+- [x] SSH-Proxy interception and redirection.
+- [x] Git Smart-HTTP adapter.
+- [x] Docker-based demo instrumentation.
+- [x] TUI Admin console (`zitpit-tui`).
+- [x] Implementation of `xtask` for demo automation.
+- [x] World-class repository documentation (`README`, `MISSION`, `CONTRIBUTING`, `SECURITY`, `GOVERNANCE`).
+- [x] Mascot assets and branding.
+- [x] GitHub issue and pull-request templates.
+- [x] Papers directory for academic collaboration.
+- [x] Verification bootstrap script (`scripts/verify_hash.sh`).
+- [x] Documentation folder with user and operator guides.

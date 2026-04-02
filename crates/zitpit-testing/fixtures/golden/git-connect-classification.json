@@ -1,0 +1,9 @@
+{
+  "lane": "code_intake",
+  "ecosystem": "git",
+  "intent": "git_remote",
+  "reason": "known Git hosting domain",
+  "confidence": 95,
+  "requires_quarantine": true,
+  "host_family": "github.com"
+}

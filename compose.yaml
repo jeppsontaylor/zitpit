@@ -1,0 +1,140 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: zitpit
+      POSTGRES_PASSWORD: zitpit
+      POSTGRES_DB: zitpit
+    volumes:
+      - ${ZITPIT_DATA_DIR}/postgres:/var/lib/postgresql/data
+      - ./deploy/postgres/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+    networks:
+      - zitpit_internal
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zitpit -d zitpit"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  zitpit-gateway:
+    image: zitpit-service:dev
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      ZITPIT_DATA_DIR: /var/lib/zitpit
+      ZITPIT_GIT_UPSTREAM_ROOT: /var/lib/zitpit/git/upstream
+      ZITPIT_SERVICE: zitpit-gateway
+    volumes:
+      - ${ZITPIT_DATA_DIR}:/var/lib/zitpit
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - zitpit_internal
+      - zitpit_egress
+    ports:
+      - "43000:3000"
+      - "43004:3004"
+
+  zitpit-manifest:
+    image: zitpit-service:dev
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      ZITPIT_DATA_DIR: /var/lib/zitpit
+      ZITPIT_SERVICE: zitpit-manifest
+    volumes:
+      - ${ZITPIT_DATA_DIR}:/var/lib/zitpit
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - zitpit_internal
+      - zitpit_egress
+    ports:
+      - "43001:3001"
+
+  zitpit-lab:
+    image: zitpit-service:dev
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      ZITPIT_DATA_DIR: /var/lib/zitpit
+      ZITPIT_SERVICE: zitpit-lab
+    volumes:
+      - ${ZITPIT_DATA_DIR}:/var/lib/zitpit
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - zitpit_internal
+      - zitpit_egress
+    ports:
+      - "43002:3002"
+
+  zitpit-watch:
+    image: zitpit-service:dev
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      ZITPIT_DATA_DIR: /var/lib/zitpit
+      ZITPIT_SERVICE: zitpit-watch
+    volumes:
+      - ${ZITPIT_DATA_DIR}:/var/lib/zitpit
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - zitpit_internal
+      - zitpit_egress
+    ports:
+      - "43003:3003"
+
+  zitpit-node-agent:
+    image: zitpit-service:dev
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      ZITPIT_DATA_DIR: /var/lib/zitpit
+      ZITPIT_SERVICE: zitpit-node-agent
+    volumes:
+      - ${ZITPIT_DATA_DIR}:/var/lib/zitpit
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - zitpit_internal
+      - zitpit_egress
+    ports:
+      - "43006:3006"
+
+  workspace-ssh:
+    build:
+      context: .
+      dockerfile: Dockerfile.workspace
+    cap_add:
+      - NET_ADMIN
+    environment:
+      ZITPIT_PROXY_URL: ${ZITPIT_PROXY_URL}
+      ZITPIT_APPROVED_REPO_URL: ${ZITPIT_APPROVED_REPO_URL}
+      ZITPIT_UNKNOWN_REPO_URL: ${ZITPIT_UNKNOWN_REPO_URL}
+    volumes:
+      - ${ZITPIT_SSH_PUBLIC_KEY}:/run/zitpit/authorized_key:ro
+      - ${ZITPIT_SSH_HOST_KEY}:/run/zitpit/ssh_host_ed25519_key:ro
+      - ${ZITPIT_DATA_DIR}/workspace:/home/zitpit/workspace
+    depends_on:
+      - zitpit-gateway
+      - zitpit-manifest
+      - zitpit-lab
+      - zitpit-watch
+      - zitpit-node-agent
+    networks:
+      - zitpit_internal
+      - zitpit_egress
+    ports:
+      - "42222:22"
+
+networks:
+  zitpit_internal:
+    internal: true
+  zitpit_egress:

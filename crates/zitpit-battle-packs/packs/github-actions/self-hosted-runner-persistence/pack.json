@@ -1,0 +1,39 @@
+{
+  "pack_id": "gha-self-hosted-runner-persistence",
+  "title": "Self-hosted runner persistence",
+  "attack_family": "github_actions",
+  "public_tier": "private_advanced",
+  "runtime_family": "github_actions",
+  "artifact_type": "github_action",
+  "artifact": {
+    "ecosystem": "git",
+    "source": "https://github.com/jeppsontaylor/gha-self-hosted-persist.git",
+    "requested_selector": "refs/heads/main",
+    "selector_kind": "branch"
+  },
+  "incident_refs": ["private/self-hosted-runner-persistence"],
+  "technique_refs": ["self-hosted-runner", "persistence"],
+  "control_pair_id": "control-benign-github-action",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": ["ci_runner"],
+  "required_personas": ["ci_runner"],
+  "required_scenarios": [
+    { "name": "self_hosted_runner", "detonation": "delayed_rerun", "phase": "delayed_rerun" }
+  ],
+  "suite_tags": ["artifact", "queue", "actions"],
+  "execution": { "browser_required": false, "vm_required": false, "queue_required": true, "runner_mode": "queue_full" },
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": { "required": ["persistence", "secret_scrape"], "allowed_false_positives": [] },
+  "control_expectations": { "require_clean_verdict": true, "max_shared_tripwires": 0, "notes": ["self-hosted runner controls must stay clean"] },
+  "evidence_minimums": {
+    "require_captured_request": true, "require_quarantine_job": true, "require_lab_run": true,
+    "require_evidence_bundle": true, "require_feed_visibility": true, "require_browser_trace": false
+  },
+  "timing": { "max_queue_latency_ms": 2000, "max_detonation_startup_ms": 2000, "max_verdict_completion_ms": 2000 },
+  "files": ["workflow.yml"],
+  "steps": [
+    { "step_id": "persist_runner", "detail": "workflow writes a service persistence artifact on a self-hosted runner", "phase": "delayed_rerun", "process_lineage": ["github actions runner"], "command": "tee /etc/systemd/system/runner-helper.service", "file_path": "/etc/systemd/system/runner-helper.service", "tripwire": "persistence", "severity": "critical" },
+    { "step_id": "read_cloud_creds", "detail": "workflow reads fake cloud credentials from the runner", "phase": "delayed_rerun", "process_lineage": ["github actions runner"], "command": "cat ~/.aws/credentials", "file_path": "~/.aws/credentials", "canary_id": "fake-aws-creds", "tripwire": "secret_scrape", "severity": "high" }
+  ]
+}

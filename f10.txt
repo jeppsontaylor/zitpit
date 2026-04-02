@@ -1,0 +1,103 @@
+I love the concept.
+
+The safe path should absolutely be the fast path, and the combination of local cache, exact artifact control, quarantine, and AI-era workflow enforcement is directionally very strong.
+
+The hard truth is this: do **not** promise “end supply-chain attacks forever,” and do **not** promise “this would have prevented every Anthropic incident” without narrowing the claim. That is exactly where senior security people will attack you first. The defensible promise is narrower and much stronger: on protected developer workstations and CI runners where all dependency intake and build execution are forced through ZitPit, unapproved first-seen artifacts do not get to execute on the host.
+
+## About the Anthropic claim
+
+If you mean the **Claude Code leak itself**, then no — not with the architecture exactly as written. Public reporting says Claude Code 2.1.88 accidentally shipped a source map that exposed more than 512,000 lines of internal code, and Anthropic said it was a release packaging issue caused by human error, not a breach. A **consumer-side intake proxy** would not stop a producer from publishing the wrong tarball. To stop that, ZitPit needs a **publisher-side gate** in release CI that inspects the exact artifact to be shipped, requires an allowlisted `files` manifest, runs `npm pack --dry-run`, and uses safeguards like `"private": true` and `publishConfig` to prevent accidental or wrong-registry publication. npm’s docs explicitly say `files` defaults to `["*"]` if omitted, `npm pack`/`publish` can be dry-run, and `"private": true` blocks publishing. ([The Verge][1])
+
+If instead you mean the **March 31, 2026 Axios compromise** that could hit developers using tools like Claude Code, then yes: a **fully enforced** ZitPit-like control plane likely would have prevented host compromise on protected endpoints. Google Threat Intelligence says attackers inserted a malicious dependency into `axios@1.14.1` and `0.30.4`; Microsoft says the dependency’s lifecycle script executed automatically during install and fetched a second-stage payload; Snyk says the malicious versions were only live until 03:29 UTC and that committed lockfiles plus `npm ci --ignore-scripts` would have blocked this exact vector. ([Google Cloud][2])
+
+## The biggest criticism seasoned security engineers will make
+
+1. **Right now, Git is too central in your design.**
+   Modern supply-chain compromise usually arrives through registries and package managers, not just `git clone`. npm resolves packages from the registry and runs lifecycle scripts; pip installs from package indexes; Cargo uses registries and source replacement; Go defaults to a module proxy plus checksum database. A `.gitconfig` / SSH choke point is useful, but it is not the universal intake control you want it to be. ([npm Docs][3])
+
+2. **The document overweights the honeypot.**
+   Behavioral analysis matters — OpenSSF’s Package Analysis exists because files touched, commands run, and network destinations are powerful signals, and behavior can change over time — but hard policy gates matter more. Senior reviewers will say the boring controls win first: pinned versions, lockfiles, hashes, provenance, no-network builds, and script blocking. Detonation should be a backstop and an evidence generator, not the core safety story. ([OpenSSF][4])
+
+3. **Hashes are not provenance.**
+   A SHA proves you got the same bits again; it does not tell you who built them, from what source commit, in what workflow, with what approvals, or how revocation works. That is why the ecosystem has split this problem into standards: SLSA for assurance levels, in-toto for attestations, Sigstore for keyless signing and transparency logs, TUF for delegated trust and expiry, npm provenance, and PyPI attestations. Your Manifest service should ideally consume and enforce these, not replace them with a bespoke trust universe. ([SLSA][5])
+
+4. **Installs and builds need to be hermetic, not merely quarantined.**
+   Python source distributions require a build step when installed; Docker supports `--network none`; BuildKit supports `RUN --network=none`; Bazel sandboxing and hermeticity restrict access to known inputs. The strongest form of ZitPit is one where public-network installs simply never happen on the real host. Unknown artifacts build only inside a no-network, known-input sandbox. ([Python Packaging][6])
+
+5. **Your lab is runtime-aware, but not yet OS-aware.**
+   The Axios compromise delivered different payloads for macOS, Windows, and Linux. A Linux-only Firecracker detonation story will miss malware that behaves differently on macOS workstations or Windows runners. Serious reviewers will demand platform-specific analysis lanes, or at least policy escalation when a package looks platform-sensitive. ([Snyk][7])
+
+6. **`Server Busy` is fine for interactive dev, but not as the core CI contract.**
+   In CI, the correct behavior for an unknown artifact is hard fail, not retry-and-hope. Security people hate non-determinism. They will also worry about agents falling back to alternate fetch paths, direct URLs, or different package managers. Interactive dev can surface “pending approval” and recommend a safe exact pin; CI should fail closed.
+
+7. **You are missing the publisher-side control plane.**
+   Anthropic’s incident was a release artifact problem, not an intake problem. npm’s packaging docs make it very clear that omitting `files` means “include everything,” and that `private` / `publishConfig` are there to prevent accidental or wrong-registry publication. Meanwhile npm and PyPI both support trusted publishing via OIDC, explicitly to avoid long-lived publish tokens. If you want to stop future Anthropic-style self-owns, ZitPit needs a first-class **Publish Gate** in addition to the proxy and lab. ([npm Docs][8])
+
+8. **“Keep the honeypot private” is not a security foundation.**
+   Attackers will eventually fingerprint it, test against it, or buy access to it. The part that must be trustworthy is the enforcement model and the evidence format. Keep rotating decoy profiles and enterprise intel private if you want, but keep the core invariants auditable.
+
+9. **Your messaging overclaims.**
+   The correct claim is class-specific: you can stop unapproved, newly published, or tampered artifacts from executing on protected hosts. You cannot honestly claim to prevent all malicious logic committed by trusted maintainers, every producer-side packaging error, or every future supply-chain attack “forever.”
+
+## How I would push this to god mode
+
+1. **Make ZitPit package-manager-native, not Git-native.**
+   For Node, become an npm/pnpm/Bun-aware registry control plane that verifies registry signatures and provenance, enforces `npm ci`, and blocks install scripts by default. For Python, become a PEP 503/simple-index mirror that requires pins and hashes and prefers wheels over sdists. For Rust, use Cargo source replacement/vendoring and enforce `--locked` / `--offline` or `--frozen`. For Go, act as the corporate `GOPROXY` and mirrored sumdb with no direct fallback in protected CI. ([npm Docs][9])
+
+2. **Add a first-class cooling-off period for brand-new public releases.**
+   This is one of the highest-leverage, lowest-drama controls you could ship. The malicious Axios versions were live for only a few hours before removal. A default 6-hour, 12-hour, or 24-hour hold on first-seen public versions would have crushed that campaign on protected endpoints with almost no fancy malware detection at all. Let trusted, attested, pre-approved lanes bypass the hold when needed. ([Snyk][7])
+
+3. **Split the product into four clear gates: Acquire, Build, Execute, Publish.**
+   Acquire decides whether bytes may enter. Build decides whether scripts may run. Execute governs runtime privileges after installation. Publish ensures you do not ship the wrong artifact yourself. Right now your story is strongest on Acquire/Analyze and weakest on Publish.
+
+4. **Replace the home-grown trust story with standards-backed policy.**
+   Let the Manifest plane be a policy layer over Sigstore bundles, in-toto attestations, TUF delegation metadata, and SLSA levels. That gives you expiry, delegation, transparency, revocation, and a vocabulary security teams already understand. ([SLSA][5])
+
+5. **Treat install/build scripts as toxic until explicitly approved.**
+   npm’s own docs let you block scripts, `npm ci` gives frozen installs, pnpm now has `approve-builds`, and Microsoft explicitly recommended ignoring postinstall scripts where possible after the Axios compromise. Node packages that truly need build scripts can be elevated into a separate approval lane and only run inside the lab. ([npm Docs][10])
+
+6. **Do the Python equivalent: prefer wheels, quarantine sdists.**
+   The Python packaging guide states that sdists require a build step when installed, even for pure Python packages. That means sdists belong in the lab, not on the developer host, unless the project is already approved and pinned with hashes. PyPI’s attestation model is exactly the kind of producer identity signal you should consume when present. ([Python Packaging][6])
+
+7. **Add a graph and retroactive kill switch.**
+   GUAC’s whole point is to aggregate SBOMs and software metadata into a graph you can query for impact, audit, and risk. You want ZitPit Watch to answer, instantly: which repos, runners, developers, lockfiles, caches, and builds touched artifact X before it was revoked? That turns supply-chain defense from “block once” into “contain fast.” ([OpenSSF][11])
+
+8. **Add AI-native enforcement, not just transparent network tricks.**
+   Give agents a brokered `request_dependency` tool instead of raw freedom to call `npm`, `pip`, `cargo`, `go`, `curl`, or `docker pull` against the public internet. Disable direct package-manager binaries or wrap them. If you really want to protect fast-moving AI-assisted teams, the approved path has to be frictionless and the unapproved path has to be impossible.
+
+9. **Build a public, reproducible benchmark suite and publish results.**
+   OpenSSF Scorecard already assesses project risk heuristics, and OpenSSF Package Analysis already models what files, addresses, and commands packages touch. Use those kinds of public signals plus your own battle suite to publish coverage by ecosystem and OS, false-positive / false-negative rates, median quarantine time, and bypass tests. Without that, senior reviewers will call the project security theater no matter how clever the lab is. ([undefined][12])
+
+10. **Add ZitPit Publish immediately.**
+    For npm, that means `npm pack --dry-run` in CI, diffing the exact tarball against an allowlisted manifest, enforcing `files`, blocking `*.map` unless explicitly approved, using `private: true` for non-public packages, pinning `publishConfig`, and requiring OIDC trusted publishing. Do the same pattern for PyPI and Rust crates. This is the missing piece if you want to talk credibly about Anthropic-like failures, not just consumer-side dependency attacks. ([npm Docs][13])
+
+## The sentence I think you can defend
+
+“On protected developer workstations and CI runners where all package acquisition is forced through ZitPit, new public versions are held behind policy, install/build scripts do not execute on the host, and only approved exact artifacts can run. Under those conditions, a short-lived malicious package release like the March 31, 2026 Axios compromise would not have executed on the protected host.” ([Snyk][7])
+
+## The sentence I would not defend
+
+“ZitPit ends supply-chain attacks forever,” or “if ZitPit existed, the Anthropic incident would never have happened,” full stop.
+
+The better version is:
+
+“ZitPit can stop the execution of unapproved or first-seen supply-chain artifacts on protected dev and CI environments, and with a publish gate it can also stop whole classes of accidental release leaks.”
+
+That is still a huge promise.
+
+I can turn this into a sharper red-team memo with sections for “fatal flaws,” “must-fix before launch,” and “safe claim language.”
+
+[1]: https://www.theverge.com/ai-artificial-intelligence/904776/anthropic-claude-source-code-leak "https://www.theverge.com/ai-artificial-intelligence/904776/anthropic-claude-source-code-leak"
+[2]: https://cloud.google.com/blog/topics/threat-intelligence/north-korea-threat-actor-targets-axios-npm-package "https://cloud.google.com/blog/topics/threat-intelligence/north-korea-threat-actor-targets-axios-npm-package"
+[3]: https://docs.npmjs.com/cli/v8/using-npm/scripts/ "https://docs.npmjs.com/cli/v8/using-npm/scripts/"
+[4]: https://openssf.org/package-analysis/ "https://openssf.org/package-analysis/"
+[5]: https://slsa.dev/spec/v1.1/about "https://slsa.dev/spec/v1.1/about"
+[6]: https://packaging.python.org/guides/distributing-packages-using-setuptools/ "https://packaging.python.org/guides/distributing-packages-using-setuptools/"
+[7]: https://snyk.io/blog/axios-npm-package-compromised-supply-chain-attack-delivers-cross-platform/ "https://snyk.io/blog/axios-npm-package-compromised-supply-chain-attack-delivers-cross-platform/"
+[8]: https://docs.npmjs.com/cli/v11/configuring-npm/package-json/ "https://docs.npmjs.com/cli/v11/configuring-npm/package-json/"
+[9]: https://docs.npmjs.com/viewing-package-provenance/ "https://docs.npmjs.com/viewing-package-provenance/"
+[10]: https://docs.npmjs.com/cli/v9/commands/npm-ci/ "https://docs.npmjs.com/cli/v9/commands/npm-ci/"
+[11]: https://openssf.org/guac/ "https://openssf.org/guac/"
+[12]: https://scorecard.dev/ "https://scorecard.dev/"
+[13]: https://docs.npmjs.com/cli/v7/commands/npm-pack/ "https://docs.npmjs.com/cli/v7/commands/npm-pack/"
+

@@ -1,0 +1,24 @@
+[package]
+name = "zitpit-testing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+axum.workspace = true
+chrono.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serial_test = "3"
+tempfile.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+zitpit-config = { path = "../zitpit-config" }
+zitpit-core = { path = "../zitpit-core" }
+zitpit-lab = { path = "../zitpit-lab" }
+zitpit-manifest = { path = "../zitpit-manifest" }
+zitpit-node-agent = { path = "../zitpit-node-agent" }
+zitpit-gateway = { path = "../zitpit-gateway" }
+zitpit-watch = { path = "../zitpit-watch" }

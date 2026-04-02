@@ -1,0 +1,5 @@
+[package]
+name = "zitpit-build-script-socket"
+version = "0.2.1"
+edition = "2021"
+build = "build.rs"

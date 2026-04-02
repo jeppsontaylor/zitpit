@@ -1,0 +1,77 @@
+{
+  "pack_id": "go-recon-burst",
+  "title": "Go CLI recon burst and git credential scrape",
+  "attack_family": "go_modules",
+  "public_tier": "public_core",
+  "runtime_family": "go",
+  "artifact_type": "go_module",
+  "artifact": {
+    "ecosystem": "go",
+    "source": "https://proxy.golang.org/github.com/jeppsontaylor/go-recon-burst/@v/v1.0.0.zip",
+    "requested_selector": "v1.0.0",
+    "selector_kind": "exact_version"
+  },
+  "incident_refs": ["public/go-cli-recon-pattern"],
+  "technique_refs": ["system-recon", "git-credential-access"],
+  "control_pair_id": "control-benign-go-module",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": ["system_recon_burst"],
+  "persona_overrides": [],
+  "required_personas": ["developer_workstation"],
+  "required_scenarios": [
+    { "name": "cli_start", "detonation": "cli_smoke", "phase": "cli" }
+  ],
+  "suite_tags": ["fast", "artifact", "queue", "public_core", "go"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": true,
+    "runner_mode": "queue_full"
+  },
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": {
+    "required": ["system_recon_burst", "internal_git_credential_access"],
+    "allowed_false_positives": []
+  },
+  "control_expectations": {
+    "require_clean_verdict": true,
+    "max_shared_tripwires": 0,
+    "notes": ["benign git release lookup should not read credentials"]
+  },
+  "evidence_minimums": {
+    "require_captured_request": true,
+    "require_quarantine_job": true,
+    "require_lab_run": true,
+    "require_evidence_bundle": true,
+    "require_feed_visibility": true,
+    "require_browser_trace": false
+  },
+  "timing": {
+    "max_queue_latency_ms": 2000,
+    "max_detonation_startup_ms": 2000,
+    "max_verdict_completion_ms": 2000
+  },
+  "files": ["go.mod", "main.go"],
+  "steps": [
+    {
+      "step_id": "burst_recon",
+      "detail": "CLI enumerates hostname, users, routes, mounts, and processes in a burst",
+      "phase": "cli",
+      "process_lineage": ["./tool"],
+      "command": "hostname && id && ps && mount && route -n",
+      "tripwire": "system_recon_burst",
+      "severity": "medium"
+    },
+    {
+      "step_id": "read_git_credentials",
+      "detail": "CLI reads local git credentials to pivot into private repos",
+      "phase": "cli",
+      "process_lineage": ["./tool"],
+      "command": "cat ~/.git-credentials",
+      "file_path": "~/.git-credentials",
+      "canary_id": "fake-git-credentials",
+      "tripwire": "internal_git_credential_access",
+      "severity": "high"
+    }
+  ]
+}

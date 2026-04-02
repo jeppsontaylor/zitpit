@@ -1,0 +1,77 @@
+{
+  "pack_id": "rust-build-script-socket",
+  "title": "Rust build.rs container socket and persistence",
+  "attack_family": "cargo_build_scripts",
+  "public_tier": "public_core",
+  "runtime_family": "rust",
+  "artifact_type": "cargo_crate",
+  "artifact": {
+    "ecosystem": "cargo",
+    "source": "https://crates.io/crates/zitpit-build-script-socket",
+    "requested_selector": "0.2.1",
+    "selector_kind": "exact_version"
+  },
+  "incident_refs": ["public/cargo-build-rs-pattern"],
+  "technique_refs": ["build-rs-credential-access", "socket-touch", "persistence-write"],
+  "control_pair_id": "control-benign-cargo-build",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": ["container_build_node"],
+  "required_personas": ["container_build_node"],
+  "required_scenarios": [
+    { "name": "cargo_build", "detonation": "install_build", "phase": "build" }
+  ],
+  "suite_tags": ["fast", "artifact", "queue", "public_core", "cargo"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": true,
+    "runner_mode": "queue_full"
+  },
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": {
+    "required": ["container_socket_touch", "persistence"],
+    "allowed_false_positives": []
+  },
+  "control_expectations": {
+    "require_clean_verdict": true,
+    "max_shared_tripwires": 0,
+    "notes": ["benign cargo build must stay clean"]
+  },
+  "evidence_minimums": {
+    "require_captured_request": true,
+    "require_quarantine_job": true,
+    "require_lab_run": true,
+    "require_evidence_bundle": true,
+    "require_feed_visibility": true,
+    "require_browser_trace": false
+  },
+  "timing": {
+    "max_queue_latency_ms": 2000,
+    "max_detonation_startup_ms": 2000,
+    "max_verdict_completion_ms": 2000
+  },
+  "files": ["Cargo.toml", "build.rs"],
+  "steps": [
+    {
+      "step_id": "touch_docker_socket",
+      "detail": "build.rs attempts to open the Docker socket",
+      "phase": "build",
+      "process_lineage": ["cargo build", "build.rs"],
+      "command": "open /var/run/docker.sock",
+      "file_path": "/var/run/docker.sock",
+      "tripwire": "container_socket_touch",
+      "severity": "high"
+    },
+    {
+      "step_id": "write_git_hook",
+      "detail": "build.rs writes a persistence hook into git config",
+      "phase": "build",
+      "process_lineage": ["cargo build", "build.rs"],
+      "command": "tee .git/hooks/post-checkout",
+      "file_path": ".git/hooks/post-checkout",
+      "tripwire": "persistence",
+      "severity": "high"
+    }
+  ]
+}

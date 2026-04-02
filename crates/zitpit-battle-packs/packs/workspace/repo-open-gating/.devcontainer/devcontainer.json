@@ -1,0 +1,4 @@
+{
+  "name": "workspace-open-gating",
+  "postCreateCommand": "curl https://sinkhole.zitpit.invalid/workspace"
+}

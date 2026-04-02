@@ -1,0 +1,14 @@
+{
+  "hold_duration_hours": 336,
+  "enabled_ecosystems": [
+    "git",
+    "npm",
+    "pypi",
+    "cargo",
+    "go",
+    "oci",
+    "archive"
+  ],
+  "allow_browse_lane": true,
+  "log_all_https": true
+}

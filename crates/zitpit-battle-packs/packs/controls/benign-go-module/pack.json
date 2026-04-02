@@ -1,0 +1,53 @@
+{
+  "pack_id": "control-benign-go-module",
+  "title": "Benign Go module fetch control",
+  "attack_family": "control",
+  "public_tier": "public_core",
+  "runtime_family": "go",
+  "artifact_type": "go_module",
+  "artifact": {
+    "ecosystem": "go",
+    "source": "https://proxy.golang.org/github.com/jeppsontaylor/benign-go-module/@v/v1.0.0.zip",
+    "requested_selector": "v1.0.0",
+    "selector_kind": "exact_version"
+  },
+  "incident_refs": [],
+  "technique_refs": ["control/go-module-fetch"],
+  "control_pair_id": null,
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": [],
+  "required_personas": ["developer_workstation"],
+  "required_scenarios": [
+    { "name": "go_fetch", "detonation": "warm_cache", "phase": "fetch" }
+  ],
+  "suite_tags": ["fast", "artifact", "queue", "controls", "public_core", "go"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": true,
+    "runner_mode": "queue_full"
+  },
+  "expected_verdict": { "verdict": "clean" },
+  "expected_tripwires": { "required": [], "allowed_false_positives": [] },
+  "control_expectations": { "require_clean_verdict": true, "max_shared_tripwires": 0, "notes": [] },
+  "evidence_minimums": {
+    "require_captured_request": true,
+    "require_quarantine_job": true,
+    "require_lab_run": true,
+    "require_evidence_bundle": true,
+    "require_feed_visibility": true,
+    "require_browser_trace": false
+  },
+  "timing": { "max_queue_latency_ms": 2000, "max_detonation_startup_ms": 2000, "max_verdict_completion_ms": 2000 },
+  "files": ["go.mod", "main.go"],
+  "steps": [
+    {
+      "step_id": "resolve_module",
+      "detail": "module resolves without touching secrets or shell state",
+      "phase": "fetch",
+      "process_lineage": ["go list"],
+      "command": "go list ./..."
+    }
+  ]
+}

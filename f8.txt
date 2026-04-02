@@ -1,0 +1,99 @@
+I do love the core concept.
+
+The best thing in ZitPit is not the honeypot by itself. It is the decision to move the trust boundary **in front of the agent**, make approved immutable artifacts the fastest path, and turn “first-seen code” into a governed event instead of an invisible background action. That is directionally aligned with the strongest current supply-chain ideas: NIST’s SSDF bakes secure practices into the SDLC, SLSA is about incrementally stronger source/build guarantees and provenance, Sigstore ties signatures to identities via short-lived certs and transparency logs, TUF exists to defend update systems against rollback/freeze/mix-and-match classes of attack, and in-toto is about proving what steps happened, by whom, and in what order. ([NIST Computer Security Resource Center][1])
+
+My bluntest take is this: **as written, ZitPit is a very promising dependency-intake firewall, but not yet an honest “end of supply-chain attacks forever” system.** The claim that will get demolished first is scope. SLSA itself explicitly says it does not tell you code is safe or that a producer is non-malicious, and in-toto’s framing is broader than “did the hash match?”—it is about the integrity of the whole chain. If you promise “never again,” seasoned reviewers will immediately ask about malicious code that was already approved, payloads that stay dormant until they see real secrets or time-based triggers, compromised first-party repos, plugins/MCP servers, and attacks that do not require fetching a brand-new dependency at all. ([SLSA][2])
+
+## Biggest criticisms serious security reviewers will raise
+
+**1. Your choke point is too narrow.**
+Git `insteadOf` rewriting is real, but Git’s own docs make clear it rewrites URLs only in contexts that take Git URLs. That is not the whole dependency world. npm can execute lifecycle scripts during install, Git-based npm deps can trigger `prepare`, Cargo has build scripts, pip’s secure mode requires all requirements and dependencies to be pinned and hashed, and Go already separates a proxy from an auditable checksum system. In other words: if ZitPit is primarily Git/SSH-aware, it is guarding an important lane, not the highway. ([Git][3])
+
+**2. You may be hashing the wrong object.**
+A repo tree hash is not the same thing as the installed artifact. npm’s docs say the published tarball contents are controlled by the `files` field plus `.npmignore` / packing rules, so what lands on a machine can differ materially from what sits in Git. GitHub’s attestation docs and Sigstore both point the trust conversation at the built artifact and its provenance, not just source state. That means ZitPit needs to become **artifact-native**: npm tarball digests, wheel/sdist digests, crate digests, Go module zip digests, OCI digests, GitHub release asset digests, plugin/MCP bundle digests. This is probably the single highest-ROI architecture correction. ([npm Docs][4])
+
+**3. Your “exact SHA fallback” risks normalizing rollback.**
+The “Server Busy; suggestion: use approved SHA X” move is clever for agent UX, but TUF treats rollback, fast-forward, freeze, and mix-and-match as first-class update-system attacks. If an agent asks for `main` and your system nudges it to an older approved commit, you are deliberately creating a downgrade path. That can still be the right move, but only with freshness, TTLs, downgrade policy, expiry, and signed metadata. Otherwise you are exchanging “new unknown risk” for “old known-vulnerable risk.” ([TUF][5])
+
+**4. “Approved / Pending / Blocked” is too coarse.**
+This is a design criticism more than a standards criticism. An artifact can be safe to **fetch** but not safe to **build**. Safe to build with **network off** but not safe to **run with secrets**. Safe in Linux CI but not on a macOS laptop. Safe as a wheel but not as an sdist. Safe before a signer/maintainer change, not safe after. So “Approved” cannot be a single absolute bit. It needs to become something like: `FETCH_ONLY`, `UNPACK_ONLY`, `BUILD_NO_NETWORK`, `TEST_NO_SECRETS`, `RUN_DEV`, `RUN_CI`, `PROMOTE_TO_PROD`, each with expiry and provenance constraints.
+
+**5. Your trust plane is too custom.**
+`verify_hash.sh` plus a GitHub release plus an independent mirror is not enough to satisfy the strongest reviewers. They will ask for threshold signatures, key rotation, revocation, transparency, offline verification, and step attestations. GitHub artifact attestations are explicitly about proving where and how software was built; Sigstore logs signing events in Rekor; in-toto is about step order and authorized actors; TUF is about integrity and freshness under compromise; SLSA gives you a shared language for source/build levels. ZitPit gets stronger, not weaker, if it composes these rather than replacing them with a homegrown ledger story. ([GitHub Docs][6])
+
+**6. Mirage Lab will be judged as a sandbox, and sandboxes get tested.**
+A seasoned reviewer will assume attackers know the lab exists, can fingerprint it, and can choose not to detonate until later. Firecracker is a good primitive, but Firecracker’s own production guidance says host and guest kernels and host microcode must be regularly patched, and says its security guarantees and defense in depth depend on implementing the hardening recommendations. I would be very wary of marketing this as “safe on the developer laptop” unless unknown-code detonation is happening on separate sacrificial workers, not on the same endpoint that holds the browser session, SSH agent, cloud auth, Slack tokens, and local secrets. ([GitHub][7])
+
+**7. A proxy-only model misses the new AI-native extension surface.**
+This is where I think you can leapfrog other products. Anthropic’s current Claude Code docs already expose org-managed settings, permission rules, MCP allowlists, plugin marketplace restrictions, and hooks that can block `PreToolUse` before a tool call executes. ZitPit should ship both as a network/content gateway **and** as an agent-policy bundle: deny unmanaged hooks, restrict MCP/plugin sources, deny reads of secrets, block `curl`, and force managed-only permission rules. If you do not integrate at the agent layer, the agent will eventually route around a pure Git proxy. ([Claude API Docs][8])
+
+## On the “Anthropic attack” claim
+
+This part needs precision, because there are at least two different Anthropic-related incident classes in circulation.
+
+If you mean **Anthropic’s own 2025 reports on AI-assisted intrusions**, I would **not** say ZitPit would have “prevented the Anthropic attack.” Anthropic said one actor used Claude Code to automate reconnaissance, credential harvesting, and penetration against at least 17 organizations, and its later report on AI-orchestrated espionage said human involvement was much less frequent than in earlier “vibe hacking” cases. That is broader than malicious dependency intake; it is abuse of already-authorized tools and credentials across the kill chain. ZitPit attacks one important slice of that problem, not the whole thing. ([Anthropic][9])
+
+If you mean the newer **Claude Code npm / packaging / axios / typosquat cluster**, then a mature ZitPit could make a much stronger claim — but I would still phrase it as **“would likely have prevented or contained this class of install-time supply-chain compromise under strict mediation.”** Outside reporting says Anthropic accidentally shipped Claude Code 2.1.88 with a source map due to packaging error, that typosquat packages appeared afterward, and that installs during a narrow window may also have pulled the compromised axios releases. Snyk says the bad axios releases used a hidden dependency and a `postinstall` hook, and npm’s docs confirm install-time scripts are a real execution surface. In a deployment where all public package resolution is forced through ZitPit, approvals key off artifact digests rather than names, and install/build scripts are detonated with no real secrets and no outbound egress, that is exactly the sort of short-lived registry compromise you can plausibly stop. I found outside reporting on the axios overlap, not a primary Anthropic confirmation, so I would not make the company-specific claim rest on that overlap detail alone. ([The Hacker News][10])
+
+So the honest line is:
+
+**Defensible:** “If all external code ingress had been forced through ZitPit, and newly seen artifacts were quarantined and detonated before install/build execution, ZitPit would likely have prevented or contained this install-time supply-chain attack class.”
+
+**Not defensible:** “If Anthropic had been using this, the incident would never have happened,” unless you very tightly define which incident and which attack path you mean.
+
+## How I’d push this to “god mode”
+
+**1. Make it artifact-native, not Git-native.**
+Support first-class proxy/mirror modes for npm, PyPI, crates, Go modules, OCI, GitHub Releases, and plugin/MCP package sources. One content-addressed store, keyed by delivered artifact digest, with edges to source provenance and build provenance. Take the Go model seriously: local proxy + checksum/transparency semantics is a much stronger pattern than URL rewriting alone. ([Go][11])
+
+**2. Replace “manifest as hash table” with “manifest as trust object.”**
+Make approvals TUF-like and provenance-aware: expiry, delegation, threshold signatures, revocation, freshness, signer continuity, downgrade policy. Attach in-toto/SLSA/Sigstore evidence to each decision. “Approved forever” should not exist; trust should decay and be renewed. ([TUF][5])
+
+**3. Go fetch-first, execute-later.**
+Your default path should be: fetch artifact, lock digest, inspect metadata, then optionally run build/install entrypoints in lab. For npm, lean hard on `ignore-scripts`; for pip, use download/wheel flows with hash-checking; for CI, require exact lockfile installs (`npm ci`-style); for Cargo, prefer locked/frozen behavior and treat `build.rs` as privileged code. This one move cuts huge amounts of blast radius. ([npm Docs][12])
+
+**4. Add a minimum-age gate.**
+This is a killer feature. New public versions should be ineligible for auto-use until they are older than some policy threshold, unless explicitly break-glassed. Snyk says the malicious axios releases were live for roughly two hours. A simple “minimum version age” rule would have neutralized that whole window for most orgs. ([Snyk][13])
+
+**5. Make verdicts capability-scoped.**
+Stop thinking “safe or unsafe package.” Start thinking “what is this artifact allowed to do, in which environment, for how long, under which identities?” That means approval records should include: artifact digest, source/build provenance, scripts present, native code yes/no, network requirement, file-system requirement, secrets requirement, signer/maintainer continuity, allowed execution phases, and expiry.
+
+**6. Turn Mirage Lab into a serious adversarial lab.**
+Run multiple personas: developer laptop, GitHub Actions runner, GitLab runner, Codespace/devcontainer, bare CI, and package-manager-specific environments. Randomize decoys. Add time skipping, repeated runs, trigger exploration, domain sinkholing, fake cloud metadata endpoints, Docker/Kubernetes/API emulation, and monitors for persistence attempts into shell profiles, git hooks, editor config, background tasks, and repo outputs. Assume attackers will fingerprint one lab; defeat that with diversity.
+
+**7. Move unknown detonation off the developer host.**
+Use remote sacrificial workers by default for enterprises. The local agent should see only the decision and the cached artifact. Let the laptop benefit from the cache, not host the blast chamber.
+
+**8. Cover the agent layer directly.**
+For Claude Code specifically, ship managed settings and hooks: allowlist MCP servers, restrict plugin marketplaces, enforce managed-only permissions, deny secret reads, and use `PreToolUse` hooks to block dangerous calls. Longer term, do the same for every major agentic IDE/CLI you care about. The future attack surface is not just `npm install`; it is hooks, plugins, MCP, background agents, and shell tools. ([Claude API Docs][8])
+
+**9. Build fleet recall like a product, not a side feature.**
+The moment one lab sees malicious behavior, every cache should revoke that digest, every runner should stop resolving it, every repo should be searchable for exposure, and every affected lockfile should get an automated remediation PR. That is how you turn “we caught it once” into “we protected the whole fleet.”
+
+**10. Open-source the control plane, not the marketing myth.**
+I would open-source the protocol, client, policy model, digest semantics, attestation model, and verifier. Keep live IOC feeds or some sandbox personas private if you want. But never make secrecy the root guarantee. The design should still hold if the attacker reads the source.
+
+## The public claim I would actually use
+
+Use something like this:
+
+> **ZitPit prevents unapproved external code from reaching developer and CI hosts without first being pinned to an immutable artifact digest, checked against trust policy and provenance, and — when required — detonated in isolation. In fully mediated environments, that blocks or contains a large class of typosquatting, dependency-confusion, malicious install-script, build-script, and short-lived registry-compromise attacks before they execute on the host.**
+
+That claim is strong. It is exciting. And it is much harder to tear apart.
+
+The one-sentence version of my feedback is: **this is a fantastic concept, but it becomes category-defining only when it stops being “a smart Git proxy with a honeypot” and becomes “the artifact firewall, provenance gate, and runtime policy plane for all agent-driven code intake.”**
+
+[1]: https://csrc.nist.gov/pubs/sp/800/218/final "https://csrc.nist.gov/pubs/sp/800/218/final"
+[2]: https://slsa.dev/spec/v1.2/about "https://slsa.dev/spec/v1.2/about"
+[3]: https://git-scm.com/docs/git-clone "https://git-scm.com/docs/git-clone"
+[4]: https://docs.npmjs.com/cli/v8/configuring-npm/package-json/ "https://docs.npmjs.com/cli/v8/configuring-npm/package-json/"
+[5]: https://theupdateframework.io/docs/security/ "https://theupdateframework.io/docs/security/"
+[6]: https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations "https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations"
+[7]: https://github.com/firecracker-microvm/firecracker/blob/main/docs/prod-host-setup.md "https://github.com/firecracker-microvm/firecracker/blob/main/docs/prod-host-setup.md"
+[8]: https://docs.anthropic.com/en/docs/claude-code/settings "https://docs.anthropic.com/en/docs/claude-code/settings"
+[9]: https://www.anthropic.com/news/detecting-countering-misuse-aug-2025 "https://www.anthropic.com/news/detecting-countering-misuse-aug-2025"
+[10]: https://thehackernews.com/2026/04/claude-code-tleaked-via-npm-packaging.html "https://thehackernews.com/2026/04/claude-code-tleaked-via-npm-packaging.html"
+[11]: https://go.dev/blog/module-mirror-launch "https://go.dev/blog/module-mirror-launch"
+[12]: https://docs.npmjs.com/cli/v9/commands/npm-rebuild "https://docs.npmjs.com/cli/v9/commands/npm-rebuild"
+[13]: https://snyk.io/blog/axios-npm-package-compromised-supply-chain-attack-delivers-cross-platform/ "https://snyk.io/blog/axios-npm-package-compromised-supply-chain-attack-delivers-cross-platform/"
+

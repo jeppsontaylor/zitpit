@@ -1,0 +1,103 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      firecracker_smoke:
+        description: Run optional Firecracker smoke checks
+        required: false
+        default: "false"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust-fast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --check
+      - name: Unit and integration tests
+        run: cargo test -q
+
+  docker-demo:
+    runs-on: ubuntu-latest
+    needs: rust-fast
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: docker/setup-buildx-action@v3
+      - name: Build cached service image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.service
+          load: true
+          tags: zitpit-service:dev
+          cache-from: type=gha,scope=zitpit-service
+          cache-to: type=gha,mode=max,scope=zitpit-service
+      - name: Build cached workspace image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.workspace
+          load: true
+          tags: zitpit-workspace-ssh:latest
+          cache-from: type=gha,scope=zitpit-workspace
+          cache-to: type=gha,mode=max,scope=zitpit-workspace
+      - name: Demo up
+        env:
+          ZITPIT_DEMO_NO_BUILD: "1"
+        run: cargo run -q -p xtask -- demo up
+      - name: Demo status
+        run: cargo run -q -p xtask -- demo status
+      - name: Demo smoke
+        run: cargo run -q -p xtask -- demo smoke
+      - name: Upload demo reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zitpit-demo-reports
+          if-no-files-found: ignore
+          path: |
+            .zitpit/demo/last_up.json
+            .zitpit/demo/last_smoke.json
+            .zitpit/demo/last_build_timings.json
+      - name: Demo down
+        if: always()
+        run: cargo run -q -p xtask -- demo down
+
+  tui-snapshots:
+    runs-on: ubuntu-latest
+    needs: rust-fast
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Ratatui render tests
+        run: cargo test -q -p zitpit-tui
+
+  firecracker-smoke:
+    runs-on: ubuntu-latest
+    needs: rust-fast
+    if: github.event_name == 'workflow_dispatch' && inputs.firecracker_smoke == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Firecracker capability check
+        run: |
+          test -e /dev/kvm || {
+            echo "/dev/kvm is not available on this runner";
+            exit 1;
+          }
+      - name: Firecracker smoke placeholder
+        run: cargo test -q -p zitpit-core firecracker -- --nocapture

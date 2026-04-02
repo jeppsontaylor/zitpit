@@ -1,0 +1,21 @@
+# ZitPit Codeowners
+
+# Global Reviewers
+*       @citadel-devs (Placeholder) 
+
+# Core Security & Decision Engine
+/crates/zitpit-core/ @citadel-security (Placeholder)
+
+# Proxy & Networking
+/crates/zitpit-proxy/ @citadel-network (Placeholder)
+
+# Laboratory & Honeypot
+/crates/zitpit-lab/ @citadel-research (Placeholder)
+
+# User Interface
+/crates/zitpit-tui/ @citadel-ui (Placeholder)
+
+# Infrastructure & Automation
+/.github/ @citadel-ops (Placeholder)
+/xtask/ @citadel-ops (Placeholder)
+/deploy/ @citadel-ops (Placeholder)

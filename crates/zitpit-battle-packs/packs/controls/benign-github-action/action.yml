@@ -1,0 +1,6 @@
+name: Benign Action
+runs:
+  using: composite
+  steps:
+    - run: echo "safe control"
+      shell: bash

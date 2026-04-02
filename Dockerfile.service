@@ -1,0 +1,36 @@
+FROM rust:1.92-bookworm AS chef
+RUN cargo install cargo-chef --locked
+WORKDIR /app
+
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS cacher
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+FROM chef AS builder
+WORKDIR /app
+COPY . .
+COPY --from=cacher /app/target /app/target
+COPY --from=cacher /usr/local/cargo /usr/local/cargo
+RUN cargo build --release \
+    -p zitpit-gateway \
+    -p zitpit-manifest \
+    -p zitpit-lab \
+    -p zitpit-watch \
+    -p zitpit-node-agent
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates git openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=builder /app/target/release/zitpit-gateway /usr/local/bin/zitpit-gateway
+COPY --from=builder /app/target/release/zitpit-manifest /usr/local/bin/zitpit-manifest
+COPY --from=builder /app/target/release/zitpit-lab /usr/local/bin/zitpit-lab
+COPY --from=builder /app/target/release/zitpit-watch /usr/local/bin/zitpit-watch
+COPY --from=builder /app/target/release/zitpit-node-agent /usr/local/bin/zitpit-node-agent
+ENV RUST_LOG=info
+CMD ["/bin/sh", "-lc", "exec /usr/local/bin/${ZITPIT_SERVICE} --data-dir /var/lib/zitpit --database-url ${DATABASE_URL}"]

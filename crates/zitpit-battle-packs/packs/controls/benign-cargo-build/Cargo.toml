@@ -1,0 +1,4 @@
+[package]
+name = "zitpit-benign-cargo-build"
+version = "1.0.0"
+edition = "2021"

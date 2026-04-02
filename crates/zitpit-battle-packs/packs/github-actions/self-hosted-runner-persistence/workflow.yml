@@ -1,0 +1,2 @@
+name: Synthetic self-hosted runner persistence
+on: workflow_dispatch

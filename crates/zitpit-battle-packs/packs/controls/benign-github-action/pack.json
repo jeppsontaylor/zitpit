@@ -1,0 +1,43 @@
+{
+  "pack_id": "control-benign-github-action",
+  "title": "Benign GitHub Action control",
+  "attack_family": "control",
+  "public_tier": "public_core",
+  "runtime_family": "control",
+  "artifact_type": "github_action",
+  "artifact": {
+    "ecosystem": "git",
+    "source": "https://github.com/jeppsontaylor/actions-benign-control.git",
+    "requested_selector": "refs/tags/v1",
+    "selector_kind": "tag"
+  },
+  "incident_refs": [],
+  "technique_refs": ["control/github-action"],
+  "control_pair_id": null,
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": [],
+  "required_personas": ["ci_runner"],
+  "required_scenarios": [
+    { "name": "action_run", "detonation": "install_build", "phase": "install" }
+  ],
+  "suite_tags": ["fast", "artifact", "queue", "controls", "public_core"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": true,
+    "runner_mode": "queue_full"
+  },
+  "expected_verdict": { "verdict": "clean" },
+  "expected_tripwires": { "required": [], "allowed_false_positives": [] },
+  "control_expectations": { "require_clean_verdict": true, "max_shared_tripwires": 0, "notes": [] },
+  "evidence_minimums": {
+    "require_captured_request": true, "require_quarantine_job": true, "require_lab_run": true,
+    "require_evidence_bundle": true, "require_feed_visibility": true, "require_browser_trace": false
+  },
+  "timing": { "max_queue_latency_ms": 2000, "max_detonation_startup_ms": 2000, "max_verdict_completion_ms": 2000 },
+  "files": ["action.yml"],
+  "steps": [
+    { "step_id": "echo_notice", "detail": "action prints a notice without touching secrets", "phase": "install", "process_lineage": ["actions runner", "composite action"], "command": "echo safe" }
+  ]
+}

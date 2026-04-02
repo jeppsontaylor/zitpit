@@ -1,0 +1,383 @@
+Yes — your refined version is better.
+
+The right shape is **not** “one huge artifact warehouse.” It is a **signed approval ledger + local safety node + detonation lane**. The one thing I would change from your wording is this: the central list cannot be only `library + version + hash`. For Git especially, that is too weak. The central manifest should record the **immutable identity** of what was approved: canonical source URL, requested ref, resolved commit object ID, tree object ID, and a canonical archive SHA-256. Git’s object IDs are content-addressed, and Git now documents both SHA-1 and SHA-256 object naming, so you want to anchor approvals to objects, not to mutable names. ([Git][1])
+
+My top-level design would be:
+
+**Project:** Frostline
+**14-day hold:** Cold Harbor-14
+**local proxy/cache:** Airlock
+**honeypot runtime:** Mirage Forge
+**forensics UI/log plane:** Tripwire Atlas
+
+The killer idea is **lagged refs**.
+
+Instead of telling developers “use a different version,” you let them keep asking for `main`, `v1.2.3`, `^1.8`, or the normal package name. Your safety node simply exposes only the **last approved state**. If upstream `main` moved this morning, your proxy still serves yesterday’s approved `main`. If `v1.2.3` exists upstream but is still in Cold Harbor-14, your proxy hides it and only advertises the last approved tag/version. That is the smallest possible workflow change because developers keep using normal Git and package-manager behavior; the policy lives in the proxy. This part is practical because Git already supports transparent URL rewriting with `url.<base>.insteadOf`, including never-before-seen repositories, and it can be deployed system-wide via `/etc/gitconfig`. Git Smart HTTP is also a standard supported server path. ([Git][2])
+
+## The simplest system I would actually ship
+
+There are only three moving parts:
+
+1. **Frostline Cloud**
+   Publishes a signed global approval manifest, a public hit feed, and optional enterprise-only verdicts and alerts.
+
+2. **Airlock Node**
+   A tiny local/tenant Rust service that every developer, build agent, and CI runner talks to instead of the internet.
+
+3. **Mirage Forge**
+   The detonation pipeline that tests new refs/versions in a deceptive sandbox before they are allowed into the manifest.
+
+```text
+dev / CI / agents
+      │
+      ▼
+  Airlock Node
+  - transparent URL rewrite target
+  - local verified cache
+  - policy enforcement
+  - only shows approved refs/versions
+      │
+      ├── approved? yes ──► fetch exact object / serve cache / verify hash
+      │
+      └── approved? no  ──► queue Mirage Forge
+                              │
+                              ├── tripwire hit -> block + publish IOC
+                              └── clean -> Cold Harbor-14
+                                              │
+                                              └── approval -> signed manifest update
+```
+
+The central service does **not** need to permanently store every blob. You were right to simplify that. But I would still keep a **verified local cache** in Airlock, otherwise every “approved” build still depends on upstream availability and deletion behavior. So the safest model is: **central approval ledger, local verified cache, optional shared CDN cache**.
+
+## The smallest possible developer change
+
+Do not ask developers to change repository URLs in code. Use Git’s own rewrite feature.
+
+A bootstrap script can install these once:
+
+```bash
+git config --global url."https://airlock.company.local/gh/".insteadOf https://github.com/
+git config --global url."https://airlock.company.local/gh/".insteadOf git@github.com:
+git config --global url."https://airlock.company.local/gl/".insteadOf https://gitlab.com/
+git config --global url."https://airlock.company.local/gl/".insteadOf git@gitlab.com:
+git config --global url."https://airlock.company.local/bb/".insteadOf https://bitbucket.org/
+```
+
+That is the clever trick — not Caddy magic. Caddy can be your TLS front door if you want, but the real move is `insteadOf`. Git documents that any matching prefix is rewritten, and the longest match wins, which is exactly what you want for host-specific routing. ([Git][2])
+
+Then enforce it for real:
+
+* developer laptops: bootstrap script + endpoint agent
+* CI: baked into the runner image
+* org-wide: `/etc/gitconfig` + egress firewall
+* block direct traffic to public Git hosts from dev/CI
+* block `git://` entirely; Git’s own docs say `git://` does no authentication and should be used with caution on unsecured networks. ([Git][3])
+
+For Git serving, Airlock should expose **HTTPS Smart HTTP**. The cleanest day-one path is a Rust policy front-end in front of `git-http-backend`; the more all-Rust path is to do repo inspection/verification with `gix` and keep the wire protocol minimal. Git’s HTTP backend already supports Smart HTTP and protocol v2, and `gix` gives you Rust-native repository access. ([Git][4])
+
+## What the signed manifest really is
+
+Do not publish a dumb text file of hashes. Publish a **signed approval manifest** with TUF-style updater protection and Sigstore-backed per-entry attestations.
+
+TUF is a strong fit because it is designed to protect update systems with metadata carrying trusted keys, hashes, signatures, version numbers, and expiry. Its docs explicitly call out the kinds of attacks you care about: being replayed old versions, being shown something newer-but-not-latest, or being tricked after a signing-key compromise. Sigstore complements that by giving you artifact signing and attestation with ephemeral keys and a transparency log. ([TUF][5])
+
+A manifest record should look like this:
+
+```json
+{
+  "kind": "git-approval",
+  "source": "github.com/acme/libfoo",
+  "ref": "refs/tags/v1.2.3",
+  "commit_oid": "4c8f...",
+  "tree_oid": "ab91...",
+  "canonical_sha256": "7f9d...",
+  "first_seen": "2026-04-01T12:00:00Z",
+  "detonation_status": "clean",
+  "cooldown_until": "2026-04-15T12:00:00Z",
+  "approved_at": "2026-04-15T12:05:00Z",
+  "policy": {
+    "allowed_submodules": true,
+    "network_profile": "none",
+    "risk": "normal"
+  },
+  "attestations": [
+    "sigstore-bundle-id",
+    "detonation-report-id"
+  ]
+}
+```
+
+The local Airlock node syncs only signed snapshots of that manifest. Self-hosters can layer a **private overlay manifest** on top of the public one.
+
+## How Airlock answers a request
+
+When a developer or build tool asks for a repo/version:
+
+**If it is already approved**
+
+* Airlock resolves the request against the manifest.
+* It fetches the exact object or serves it from cache.
+* It verifies the fetched content against the approved object IDs and canonical SHA-256.
+* It serves only the approved ref/version.
+
+**If it is unknown**
+
+* Airlock queues detonation immediately.
+* If there is an older approved ref/version, it serves that one instead.
+* If there is no older approved state, it rejects with a clean policy message.
+
+The best part is the branch behavior:
+
+* `main` is exposed as the last approved commit on `main`
+* `release/2.x` is exposed as the last approved commit on that branch
+* tags are exposed only after approval
+* semver registries list only approved versions
+
+That gives you the “reply fast with a downgrade” behavior you wanted without teaching developers a new workflow.
+
+## Package ecosystems: keep the same pattern everywhere
+
+Git URL rewriting is the universal trick for raw Git dependencies, but registry ecosystems should also point at Airlock.
+
+For Rust, Cargo supports source replacement for registries and git-based dependencies, and it assumes replacement sources contain the **exact same source code** as the original. For npm, the CLI is registry-driven and configurable via `.npmrc`. For Python, host a simple repository and use `index-url`; pip explicitly warns that `--extra-index-url` is unsafe because of dependency confusion, and `--require-hashes` enforces repeatable installs. Go should use a single trusted `GOPROXY`; the Go docs note the default is `https://proxy.golang.org,direct`, and that 404/410 responses can trigger fallback, so your proxy must be the only source or return hard denies for unapproved modules. Maven can mirror everything with `<mirrorOf>*</mirrorOf>`, NuGet package source mapping prevents ambiguous source selection, Bundler supports mirrors, and GitHub recommends pinning third-party Actions to full commit SHAs because that is the only immutable release form. ([Rust Documentation][6])
+
+The bootstrap can be one-time and boring:
+
+```bash
+# npm
+npm config set registry https://airlock.company.local/npm/
+
+# pip
+python -m pip config set global.index-url https://airlock.company.local/pypi/simple
+python -m pip config set global.require-hashes true
+
+# Go
+go env -w GOPROXY=https://airlock.company.local/go
+go env -w GOSUMDB=airlock.company.local/sumdb
+go env -w GONOPROXY=
+go env -w GONOSUMDB=
+
+# Maven
+# install settings.xml with <mirrorOf>*</mirrorOf>
+
+# Bundler
+bundle config set --global mirror.https://rubygems.org https://airlock.company.local/rubygems
+```
+
+One subtle but important Go rule: your proxy should return **deny**, not “not found,” for blocked versions, because the Go client can fall through to later sources on 404/410. The docs spell that out. ([Go][7])
+
+## Mirage Forge: the honeypot should not be “just Docker”
+
+For detonation, do **not** run untrusted code directly on the host Docker engine.
+
+Use **Firecracker microVMs** as the outer barrier, then run the package or container build inside the guest. Firecracker is Rust-based, intentionally minimal, and built around a reduced device model and fast startup, which makes one-VM-per-run practical. ([Firecracker][8])
+
+Inside the guest:
+
+* read-only base image
+* rootless container or direct build harness
+* fake home directory
+* fake cloud and CI credentials
+* fake `.ssh`, kube configs, `.npmrc`, `.pypirc`, `.cargo`, Git credentials
+* fake browser/session files
+* fake Docker socket
+* fake metadata services
+* fake internal Git, package, vault, and database endpoints
+* no real outbound internet
+
+The malware should *think* it found paradise.
+
+### The network trick
+
+Let it “phone home,” but only into a sinkhole fabric:
+
+* wildcard DNS resolves internally
+* all HTTP/TLS/TCP goes to your sinkhole
+* log DNS, SNI, headers, bodies, timing, retry patterns
+* emulate success when useful so the code reveals phase two behavior
+* absolutely no real egress
+
+That gives you the realism you want without actual data exfiltration.
+
+### Sensors
+
+Use a layered model:
+
+* **Landlock** for object-level filesystem access boundaries
+* **seccomp** for syscall filtering and optional user notifications
+* **Aya eBPF** for Rust-native telemetry on exec, open, connect, mount, ptrace, namespace changes, and more
+
+Linux’s own docs explicitly distinguish Landlock from seccomp: Landlock is about access control on kernel objects, while seccomp is about syscall filtering. That is exactly why using both is stronger than either alone. Aya gives you a Rust path for the eBPF side. ([Kernel Documentation][9])
+
+### Immediate block conditions
+
+I would auto-block on:
+
+* reading any honey secret
+* touching fake SSH/kube/cloud tokens
+* reading `/proc/*/environ` broadly
+* outbound attempts to sinkhole domains or raw IPs
+* `ptrace`, `mount`, `unshare`, `bpf`, suspicious namespace work
+* writing persistence hooks
+* fetching second-stage payloads
+* scanning sibling mounts or the fake Docker socket
+
+## “Fair tests” that really trick attackers
+
+The honeypot should not only “run a container.” It should run **believable lifecycle behavior**:
+
+* npm: install + lifecycle scripts + import smoke test
+* Python: wheel install, sdist build, PEP 517 backend run, import smoke test
+* Rust: `cargo fetch`, `cargo build`, `build.rs`, `cargo test --no-run`
+* Go: module download, build, checksum path
+* Maven/Gradle: resolve + compile
+* GitHub Actions: mirrored runner simulation with fake CI secrets
+* OCI images: entrypoint + side effects
+
+Also support three scopes:
+
+* **global popular corpus**
+* **organization dependency set**
+* **user-supplied shortlist**
+
+I would not promise “literally all open source every day” on commodity hardware. I would promise “all supported ecosystems, all first-seen requests, your active dependency graph, and a large public corpus.”
+
+## Tripwire Atlas: the security log people will actually love
+
+Every run should have:
+
+* source identity and signed manifest lineage
+* process tree
+* file reads/writes
+* decoy hits
+* network attempts
+* stdout/stderr
+* syscall/security events
+* verdict, policy, cooldown clock
+* version-to-version diff
+
+Make the UI answer questions like:
+
+* “what changed between 1.2.2 and 1.2.3?”
+* “show every package that touched a kube token decoy”
+* “show first contact domain for this family”
+* “show all blocked builds in the last 24 hours”
+* “replay this detonation timeline”
+
+Public website:
+
+* hourly hit feed
+* package pages
+* manifest explorer
+* IOC feed
+* API for self-hosted nodes
+
+Enterprise website:
+
+* richer private detections
+* larger manifest
+* push alerts to Slack/PagerDuty/email
+* org-specific warnings before public release
+
+## Open source vs enterprise split
+
+Open source:
+
+* Airlock local node
+* public manifest client/verifier
+* basic detonation engine
+* standard decoy packs
+* public hit feed UI
+* self-host overlay manifest support
+
+Enterprise:
+
+* stricter private trap packs
+* better anti-evasion realism
+* broader pre-screened manifest
+* faster ingest
+* org policy overlays
+* private push notifications
+* private analytics and retro-hunt
+
+Do **not** open source your best decoy corpus, your enterprise scoring rules, or your sinkhole response heuristics.
+
+## Rust-first repo layout
+
+```text
+frostline/
+  Cargo.toml
+  crates/
+    airlock-node/         # local proxy/cache/policy node
+    manifest-core/        # schema, TUF client, signatures
+    manifest-publisher/   # central publisher
+    git-verify/           # object/ref/tree verification
+    registry-adapters/
+      cargo/
+      npm/
+      pypi/
+      go/
+      maven/
+      nuget/
+      bundler/
+      actions/
+      oci/
+    mirage-forge/         # detonation orchestrator
+    mirage-sensors/       # aya/eBPF userland
+    tripwire-atlas/       # event ingest + query API
+    atlas-ui-api/
+    frostline-cli/
+  ebpf/
+  decoys/
+  docs/
+  standalone/
+    mirage-forge/
+```
+
+Release:
+
+* full platform
+* `airlock-node` standalone binary
+* `mirage-forge` standalone binary
+* `mirage-forge` OCI image
+
+That gives you one repo, but people can still download just the honeypot.
+
+## My 10 favorite project names
+
+I have **not** trademark-checked these.
+
+1. Frostline
+2. Airlock
+3. Blackglass
+4. RefShield
+5. Coldchain
+6. Mirrorhold
+7. IronHive
+8. SafeRef
+9. Honeywall
+10. Gatehouse
+
+My pick for the open-source project is **Frostline**.
+My pick for the 14-day waiting period is **Cold Harbor-14**.
+
+## The three rules that make this work
+
+1. **Approve immutable identities, not names.**
+2. **Expose lagged refs and hidden versions, not “latest.”**
+3. **Let only Airlock talk to the internet.**
+
+That is not “game over for all supply-chain attacks,” but it is a very serious step-change: developers keep their normal workflow, CI stays deterministic, new upstream code gets detonated before visibility, and the public manifest lets the whole ecosystem amortize the cost of approval.
+
+The shortest path to an MVP is: **Git URL rewrite + Airlock proxy + signed manifest + lagged refs + Mirage Forge on first-seen refs/versions**. That is the smallest-change version with the biggest security gain.
+
+[1]: https://git-scm.com/docs/gittutorial-2/2.2.3 "https://git-scm.com/docs/gittutorial-2/2.2.3"
+[2]: https://git-scm.com/docs/git-config "Git - git-config Documentation"
+[3]: https://git-scm.com/docs/git-config?utm_source=chatgpt.com "Git - git-config Documentation"
+[4]: https://git-scm.com/docs/git-http-backend "https://git-scm.com/docs/git-http-backend"
+[5]: https://theupdateframework.io/docs/overview/ "https://theupdateframework.io/docs/overview/"
+[6]: https://doc.rust-lang.org/cargo/reference/source-replacement.html "https://doc.rust-lang.org/cargo/reference/source-replacement.html"
+[7]: https://go.dev/ref/mod "https://go.dev/ref/mod"
+[8]: https://firecracker-microvm.github.io/ "https://firecracker-microvm.github.io/"
+[9]: https://docs.kernel.org/security/landlock.html "https://docs.kernel.org/security/landlock.html"
+

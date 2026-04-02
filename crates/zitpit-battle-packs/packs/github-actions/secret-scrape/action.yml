@@ -1,0 +1,6 @@
+name: Synthetic Secret Scrape
+runs:
+  using: composite
+  steps:
+    - run: echo "synthetic github action fixture"
+      shell: bash

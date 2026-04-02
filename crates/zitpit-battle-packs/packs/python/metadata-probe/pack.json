@@ -1,0 +1,79 @@
+{
+  "pack_id": "python-metadata-probe",
+  "title": "Python installer metadata probe",
+  "attack_family": "package_install_malware",
+  "public_tier": "public_core",
+  "runtime_family": "python",
+  "artifact_type": "pypi_package",
+  "artifact": {
+    "ecosystem": "pypi",
+    "source": "https://files.pythonhosted.org/packages/zitpit-metadata-probe",
+    "requested_selector": "0.4.0",
+    "selector_kind": "exact_version"
+  },
+  "incident_refs": ["public/pypi-build-hook-pattern"],
+  "technique_refs": ["metadata-probe", "kube-credential-enumeration"],
+  "control_pair_id": "control-benign-pip-build",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": ["cloud_operator"],
+  "required_personas": ["cloud_operator"],
+  "required_scenarios": [
+    { "name": "pep517_build", "detonation": "install_build", "phase": "build" }
+  ],
+  "suite_tags": ["fast", "artifact", "queue", "public_core"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": true,
+    "runner_mode": "queue_full"
+  },
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": {
+    "required": ["metadata_probe", "kube_token_enumeration"],
+    "allowed_false_positives": []
+  },
+  "control_expectations": {
+    "require_clean_verdict": true,
+    "max_shared_tripwires": 0,
+    "notes": ["benign pip build must stay clean"]
+  },
+  "evidence_minimums": {
+    "require_captured_request": true,
+    "require_quarantine_job": true,
+    "require_lab_run": true,
+    "require_evidence_bundle": true,
+    "require_feed_visibility": true,
+    "require_browser_trace": false
+  },
+  "timing": {
+    "max_queue_latency_ms": 2000,
+    "max_detonation_startup_ms": 2000,
+    "max_verdict_completion_ms": 2000
+  },
+  "files": ["pyproject.toml", "setup.py"],
+  "steps": [
+    {
+      "step_id": "probe_metadata",
+      "detail": "setup phase attempts to read instance metadata",
+      "phase": "build",
+      "process_lineage": ["pip install", "python setup.py"],
+      "command": "curl http://169.254.169.254/latest/meta-data",
+      "network_target": "169.254.169.254",
+      "network_protocol": "http",
+      "tripwire": "metadata_probe",
+      "severity": "critical"
+    },
+    {
+      "step_id": "read_kube_token",
+      "detail": "installer enumerates kube credentials after the metadata probe",
+      "phase": "build",
+      "process_lineage": ["pip install", "python setup.py"],
+      "command": "cat ~/.kube/config",
+      "file_path": "~/.kube/config",
+      "canary_id": "fake-kube-config",
+      "tripwire": "kube_token_enumeration",
+      "severity": "high"
+    }
+  ]
+}

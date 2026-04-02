@@ -1,0 +1,22 @@
+{
+  "observation": {
+    "request_id": "11111111-1111-1111-1111-111111111111",
+    "observed_at": "2026-04-01T18:00:00Z",
+    "scheme": "https",
+    "authority": "registry.npmjs.org",
+    "path": "/lodash",
+    "method": "GET",
+    "user_agent": "npm/10",
+    "headers": {},
+    "selector_hint": {
+      "requested": "^4.17",
+      "kind": "semver_range"
+    }
+  },
+  "coordinate": {
+    "ecosystem": "npm",
+    "source": "npm:lodash",
+    "requested_selector": "^4.17",
+    "selector_kind": "semver_range"
+  }
+}

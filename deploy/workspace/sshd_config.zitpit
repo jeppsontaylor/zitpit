@@ -1,0 +1,17 @@
+Include /etc/ssh/sshd_config
+
+HostKey /run/zitpit/ssh_host_ed25519_key
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+AllowUsers zitpit
+UsePAM no
+
+Match User zitpit
+    SetEnv ZITPIT_PROTECTED=1
+    SetEnv ZITPIT_WINDOW_TITLE="ZitPit Protected SSH"
+    SetEnv ZITPIT_BG_COLOR=#103a1f
+    ForceCommand /usr/local/bin/zitpit-protected-session

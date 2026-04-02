@@ -1,0 +1,1 @@
+# Hidden payload fixture

@@ -1,0 +1,38 @@
+{
+  "pack_id": "git-submodule-rewrite",
+  "title": "Malicious submodule rewrite",
+  "attack_family": "git_integrity",
+  "public_tier": "public_core",
+  "runtime_family": "rust",
+  "artifact_type": "git_repo",
+  "artifact": {
+    "ecosystem": "git",
+    "source": "https://github.com/jeppsontaylor/submodule-rewrite.git",
+    "requested_selector": "refs/heads/main",
+    "selector_kind": "branch"
+  },
+  "incident_refs": ["public/submodule-rewrite"],
+  "technique_refs": ["submodule-target-swap"],
+  "control_pair_id": "control-benign-git-release",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": [],
+  "required_personas": ["developer_workstation"],
+  "required_scenarios": [
+    { "name": "submodule_update", "detonation": "cli_smoke", "phase": "fetch" }
+  ],
+  "suite_tags": ["fast", "queue", "public_core", "git_core"],
+  "execution": { "browser_required": false, "vm_required": false, "queue_required": true, "runner_mode": "queue_full" },
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": { "required": ["submodule_rewrite"], "allowed_false_positives": [] },
+  "control_expectations": { "require_clean_verdict": true, "max_shared_tripwires": 0, "notes": ["submodule target must stay canonical"] },
+  "evidence_minimums": {
+    "require_captured_request": true, "require_quarantine_job": true, "require_lab_run": true,
+    "require_evidence_bundle": true, "require_feed_visibility": true, "require_browser_trace": false
+  },
+  "timing": { "max_queue_latency_ms": 2000, "max_detonation_startup_ms": 2000, "max_verdict_completion_ms": 2000 },
+  "files": ["README.md"],
+  "steps": [
+    { "step_id": "swap_submodule_target", "detail": "repository points its submodule at an unexpected upstream commit", "phase": "fetch", "process_lineage": ["git submodule update"], "command": "git config --file .gitmodules", "tripwire": "submodule_rewrite", "severity": "high" }
+  ]
+}

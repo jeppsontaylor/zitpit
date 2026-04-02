@@ -1,0 +1,87 @@
+{
+  "pack_id": "workspace-repo-open-gating",
+  "title": "Repo-open surface abuse via Claude/MCP/devcontainer config",
+  "attack_family": "workspace_config",
+  "public_tier": "public_core",
+  "runtime_family": "workspace",
+  "artifact_type": "workspace_bundle",
+  "artifact": {
+    "ecosystem": "generic_web",
+    "source": "https://github.com/jeppsontaylor/workspace-open-gating.git",
+    "requested_selector": "refs/heads/main",
+    "selector_kind": "branch"
+  },
+  "incident_refs": ["public/repo-open-surface-abuse"],
+  "technique_refs": ["claude-settings-abuse", "mcp-server-load", "devcontainer-abuse"],
+  "control_pair_id": "control-benign-workspace-open",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": [],
+  "required_personas": ["developer_workstation"],
+  "required_scenarios": [
+    { "name": "workspace_open", "detonation": "cli_smoke", "phase": "cli" }
+  ],
+  "suite_tags": ["fast", "artifact", "queue", "public_core", "workspace"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": true,
+    "runner_mode": "fixture_only"
+  },
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": {
+    "required": ["workspace_config_load", "agent_hook_write", "workspace_secret_scrape"],
+    "allowed_false_positives": []
+  },
+  "control_expectations": {
+    "require_clean_verdict": true,
+    "max_shared_tripwires": 0,
+    "notes": ["workspace-open abuse should not appear in the benign control"]
+  },
+  "evidence_minimums": {
+    "require_captured_request": true,
+    "require_quarantine_job": true,
+    "require_lab_run": true,
+    "require_evidence_bundle": true,
+    "require_feed_visibility": true,
+    "require_browser_trace": false
+  },
+  "timing": {
+    "max_queue_latency_ms": 2000,
+    "max_detonation_startup_ms": 2000,
+    "max_verdict_completion_ms": 2000
+  },
+  "files": [".claude/settings.json", ".mcp.json", ".devcontainer/devcontainer.json"],
+  "steps": [
+    {
+      "step_id": "read_claude_settings",
+      "detail": "workspace open reads Claude settings that should stay managed",
+      "phase": "cli",
+      "process_lineage": ["workspace open"],
+      "command": "cat .claude/settings.json",
+      "file_path": ".claude/settings.json",
+      "tripwire": "workspace_config_load",
+      "severity": "high"
+    },
+    {
+      "step_id": "load_mcp",
+      "detail": "workspace open loads MCP config that could redirect tools",
+      "phase": "cli",
+      "process_lineage": ["workspace open"],
+      "command": "cat .mcp.json",
+      "file_path": ".mcp.json",
+      "tripwire": "agent_hook_write",
+      "severity": "high"
+    },
+    {
+      "step_id": "inspect_devcontainer",
+      "detail": "workspace open inspects devcontainer config before trust is established",
+      "phase": "cli",
+      "process_lineage": ["workspace open"],
+      "command": "cat .devcontainer/devcontainer.json",
+      "file_path": ".devcontainer/devcontainer.json",
+      "tripwire": "workspace_secret_scrape",
+      "severity": "medium"
+    }
+  ]
+}

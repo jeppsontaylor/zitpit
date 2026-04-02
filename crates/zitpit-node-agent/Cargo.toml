@@ -1,0 +1,20 @@
+[package]
+name = "zitpit-node-agent"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+axum.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+tokio.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+zitpit-config = { path = "../zitpit-config" }
+zitpit-flags = { path = "../zitpit-flags" }
+zitpit-core = { path = "../zitpit-core" }

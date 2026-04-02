@@ -1,0 +1,13 @@
+/.git
+/target
+/.zitpit
+/.DS_Store
+**/.DS_Store
+**/node_modules
+**/*.log
+**/*.tmp
+**/*.swp
+**/coverage
+**/.next
+**/dist
+**/build

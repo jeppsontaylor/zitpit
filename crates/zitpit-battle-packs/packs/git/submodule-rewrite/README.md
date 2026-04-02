@@ -1,0 +1,1 @@
+# Submodule rewrite fixture

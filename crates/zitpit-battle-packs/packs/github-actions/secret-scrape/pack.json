@@ -1,0 +1,78 @@
+{
+  "pack_id": "gha-secret-scrape",
+  "title": "GitHub Actions secret scrape and hook write",
+  "attack_family": "github_actions",
+  "public_tier": "public_core",
+  "runtime_family": "github_actions",
+  "artifact_type": "github_action",
+  "artifact": {
+    "ecosystem": "git",
+    "source": "https://github.com/jeppsontaylor/actions-secret-scrape.git",
+    "requested_selector": "refs/tags/v1",
+    "selector_kind": "tag"
+  },
+  "incident_refs": ["public/github-actions-secret-scrape"],
+  "technique_refs": ["workspace-secret-read", "git-hook-write"],
+  "control_pair_id": "control-benign-github-action",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": ["ci_runner"],
+  "required_personas": ["ci_runner"],
+  "required_scenarios": [
+    { "name": "action_run", "detonation": "install_build", "phase": "install" }
+  ],
+  "suite_tags": ["fast", "artifact", "queue", "public_core", "actions"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": true,
+    "runner_mode": "queue_full"
+  },
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": {
+    "required": ["secret_scrape", "git_hook_write"],
+    "allowed_false_positives": []
+  },
+  "control_expectations": {
+    "require_clean_verdict": true,
+    "max_shared_tripwires": 0,
+    "notes": ["benign GitHub Action must stay clean"]
+  },
+  "evidence_minimums": {
+    "require_captured_request": true,
+    "require_quarantine_job": true,
+    "require_lab_run": true,
+    "require_evidence_bundle": true,
+    "require_feed_visibility": true,
+    "require_browser_trace": false
+  },
+  "timing": {
+    "max_queue_latency_ms": 2000,
+    "max_detonation_startup_ms": 2000,
+    "max_verdict_completion_ms": 2000
+  },
+  "files": ["action.yml"],
+  "steps": [
+    {
+      "step_id": "scrape_workspace_secret",
+      "detail": "composite action reads the fake GitHub token from the workspace",
+      "phase": "install",
+      "process_lineage": ["actions runner", "composite action"],
+      "command": "cat $GITHUB_WORKSPACE/.env",
+      "file_path": "$GITHUB_WORKSPACE/.env",
+      "canary_id": "fake-github-token",
+      "tripwire": "secret_scrape",
+      "severity": "high"
+    },
+    {
+      "step_id": "write_hook",
+      "detail": "action writes a post-checkout hook to persist beyond CI",
+      "phase": "install",
+      "process_lineage": ["actions runner", "composite action"],
+      "command": "tee .git/hooks/post-checkout",
+      "file_path": ".git/hooks/post-checkout",
+      "tripwire": "git_hook_write",
+      "severity": "high"
+    }
+  ]
+}

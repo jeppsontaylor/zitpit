@@ -1,0 +1,43 @@
+{
+  "pack_id": "control-benign-cargo-build",
+  "title": "Benign cargo build control",
+  "attack_family": "control",
+  "public_tier": "public_core",
+  "runtime_family": "control",
+  "artifact_type": "cargo_crate",
+  "artifact": {
+    "ecosystem": "cargo",
+    "source": "https://crates.io/crates/zitpit-benign-cargo-build",
+    "requested_selector": "1.0.0",
+    "selector_kind": "exact_version"
+  },
+  "incident_refs": [],
+  "technique_refs": ["control/cargo-build"],
+  "control_pair_id": null,
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": [],
+  "required_personas": ["container_build_node"],
+  "required_scenarios": [
+    { "name": "cargo_build", "detonation": "install_build", "phase": "build" }
+  ],
+  "suite_tags": ["fast", "artifact", "queue", "controls", "public_core", "cargo"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": true,
+    "runner_mode": "queue_full"
+  },
+  "expected_verdict": { "verdict": "clean" },
+  "expected_tripwires": { "required": [], "allowed_false_positives": [] },
+  "control_expectations": { "require_clean_verdict": true, "max_shared_tripwires": 0, "notes": [] },
+  "evidence_minimums": {
+    "require_captured_request": true, "require_quarantine_job": true, "require_lab_run": true,
+    "require_evidence_bundle": true, "require_feed_visibility": true, "require_browser_trace": false
+  },
+  "timing": { "max_queue_latency_ms": 2000, "max_detonation_startup_ms": 2000, "max_verdict_completion_ms": 2000 },
+  "files": ["Cargo.toml", "lib.rs"],
+  "steps": [
+    { "step_id": "compile_library", "detail": "crate compiles without touching sockets or credentials", "phase": "build", "process_lineage": ["cargo build"], "command": "cargo build" }
+  ]
+}

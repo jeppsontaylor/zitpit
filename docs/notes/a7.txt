@@ -1,0 +1,401 @@
+Your revised idea is better.
+
+The winning model is **not** “mirror the world forever.” It is **publish trust globally, enforce locally**.
+
+A central **signed manifest service** should publish what is approved, what is cooling off, what is blocked, and what its exact digests are. Then each company or developer runs a tiny **Safety Node** that all Git and package traffic goes through. That node caches on demand, verifies against the signed manifest, quarantines unknowns, and only exposes approved refs and versions. That pattern is close to the successful design of Go’s module proxy + checksum database, and it directly targets the kinds of problems seen in the 2025 `tj-actions/changed-files` tag-retargeting compromise and the 2025 widespread npm ecosystem compromise that CISA and GitHub described. ([Go][1])
+
+My pick for the brand is **Frostline**.
+My pick for the 14-day hold is **Glacier Window**.
+
+## The simple model
+
+There are only three moving parts:
+
+1. **Global Manifest Service**
+   Publishes signed, append-only approval data and incident feeds.
+
+2. **Safety Node**
+   A local or internal proxy/cache that developers and CI point at instead of public Git or registries.
+
+3. **Quarantine + Honeypot Farm**
+   Runs only when the Safety Node sees something unknown, changed, or suspicious.
+
+That is the simplest design that still satisfies your hard requirement: **developers and CI never pull open-source code directly from the internet**. A manifest alone cannot do that, because the client would still be fetching from the public host. You still need a small gateway/proxy layer.
+
+## The trust format: not one giant hash list
+
+Do **not** make one giant JSON file of hashes. Make a **signed, sharded manifest**.
+
+Use **TUF** for the manifest format and freshness model: `root`, `targets`, `snapshot`, and `timestamp`, with short-lived online metadata and longer-lived offline trust roots. Add a **transparency log** for every promotion and revocation event so the world can audit unexpected changes. TUF is designed to protect clients even if a repository or online signing key is compromised, and Sigstore’s Rekor is specifically an append-only transparency log for auditable signing events. ([TUF][2])
+
+The manifest should be sharded like this:
+
+* `timestamp.json`
+* `snapshot.json`
+* `targets/git/github.com/owner/repo.json`
+* `targets/npm/@scope/pkg.json`
+* `targets/pypi/project-name.json`
+* `targets/go/module/path.json`
+* `feeds/hits/2026/04/01/13.ndjson.zst`
+
+That keeps client downloads tiny and CDN-friendly.
+
+## What a Git record should contain
+
+For Git, store **three identities**, not one:
+
+* `commit_oid` — the exact upstream commit ID.
+* `tree_oid` — the exact Git tree at that commit.
+* `source_digest_sha256` — your own canonical SHA-256 over the normalized tree contents.
+
+Git now supports repositories whose object format uses SHA-256 instead of SHA-1, and tree objects are Git’s content grouping primitive, so the manifest should record both the upstream Git identity and your own stable digest. ([Git][3])
+
+That lets you detect:
+
+* tag drift
+* branch drift
+* same content / different commit metadata
+* same version string / different bits
+* transport repack differences
+
+For registry artifacts, also store the **exact artifact hashes** actually consumed by builds. For PyPI, package links can include hashes that consumers must verify if present, and npm supports registry signatures to detect tampering by a mirror or proxy. ([PyPI Docs][4])
+
+## The smallest developer change
+
+The smartest Git trick is **not** a custom protocol. It is **Git URL rewriting** with a centrally managed include file.
+
+Git already supports:
+
+* `url.<base>.insteadOf` URL rewriting
+* `include.path` and `includeIf.*.path`
+* system-wide config via `/etc/gitconfig` ([Git][5])
+
+So the bootstrap can be one tiny change:
+
+```ini
+# one-time bootstrap
+[include]
+    path = ~/.config/frostline/gitconfig
+```
+
+Then Frostline manages `~/.config/frostline/gitconfig` for the user.
+
+### Default safe host-bundle
+
+```ini
+[url "https://safenode.company/proxy/https/"]
+    insteadOf = https://github.com/
+    insteadOf = https://gitlab.com/
+    insteadOf = https://bitbucket.org/
+
+[url "https://safenode.company/proxy/ssh/"]
+    insteadOf = git@github.com:
+    insteadOf = ssh://git@github.com/
+    insteadOf = git@gitlab.com:
+    insteadOf = ssh://git@gitlab.com/
+```
+
+### Enterprise catch-all mode
+
+```ini
+[url "https://safenode.company/proxy/https/"]
+    insteadOf = https://
+
+[url "https://safenode.company/proxy/ssh/"]
+    insteadOf = git@
+    insteadOf = ssh://git@
+```
+
+That is the clever part: developers do **not** change import paths, repo URLs, or habits. Git rewrites the URLs before the network call happens. The longest matching rewrite wins, so you can use specific rules by default and a catch-all mode for locked-down enterprises. ([Git][5])
+
+For managed fleets, put that include in `/etc/gitconfig` and the change becomes effectively **zero-touch** for developers. ([Git][6])
+
+## How the Safety Node behaves
+
+Do not reimplement the Git wire protocol unless you absolutely must. Use stock Git compatibility on the data plane and Rust on the control plane.
+
+Git already provides `git-http-backend` for Git-over-HTTP, including smart HTTP and protocol v2, and `git-upload-pack` is explicitly designed to safely serve clone/fetch data from an untrusted `.git` directory. ([Git][7])
+
+So the Safety Node should work like this:
+
+* **Front door**: Rust service.
+* **Git data plane**: smart HTTP backed by local bare mirrors / pack cache.
+* **Manifest verifier**: Rust.
+* **Quarantine router**: Rust.
+* **Policy engine**: Rust.
+
+The gateway never shows upstream refs directly. It exposes a **filtered view**:
+
+* branches only up to last approved commit
+* tags only if approved
+* package versions only if approved
+* mutable version ranges resolve only to approved versions
+
+That means the developer’s solver or Git client never even sees the unsafe version.
+
+### Resolution rules
+
+* If the request is a **mutable ref** like `main`, `latest`, or `^1.2`, the Safety Node serves the latest **approved** target that matches.
+* If the request is an **exact pin** like a full commit SHA or exact version and it is not approved, the Safety Node must **reject**, not silently downgrade.
+* If a tag moves upstream, treat that as an **incident**, not an update.
+
+That last rule matters because the `tj-actions` compromise specifically involved version tags being moved to a malicious commit. GitHub’s own guidance says pinning to a full-length commit SHA is the only immutable way to use a GitHub Action. ([GitHub][8])
+
+## Why your “manifest + cache” idea is the right simplification
+
+This is the clean version:
+
+* The **global service** publishes trust.
+* The **Safety Node** holds only:
+
+  * manifest cache
+  * hot object cache
+  * quarantine cache
+* It does **not** need to mirror the universe.
+
+That keeps storage small and makes self-hosting easy.
+
+In community mode, a self-hoster can run Frostline with:
+
+* one container for the Safety Node
+* one manifest sync sidecar
+* local disk cache
+* optional honeypot worker
+
+No database is required for basic mode. SQLite is enough. Postgres and object storage are only needed when people want enterprise-scale telemetry and multi-tenant workflows.
+
+## Beyond Git: same node, same idea
+
+For registries, use their native “point somewhere else” setting so developers still make only a tiny config change.
+
+Cargo supports source replacement for registries, and Cargo can be configured to use the `git` executable for Git dependencies via `net.git-fetch-with-cli`, which makes the Git rewrite path practical for Rust shops. pip supports secure hash-checking and VCS installs through a working VCS executable, npm supports custom registries and `npm ci`, Go supports `GOPROXY` and mirrored checksum databases, Maven supports `mirrorOf`, Gradle has built-in dependency verification and wrapper SHA-256 checking, and NuGet has package source mapping. ([Rust Documentation][9])
+
+So the user story becomes:
+
+* Git deps: rewritten automatically
+* package deps: point to the same Safety Node under `/npm`, `/pypi`, `/cargo`, `/go`, `/maven`, `/nuget`
+* CI: add one base image or one managed config profile
+* egress: block public registries and public Git except from the Safety Node
+
+## Quarantine state machine
+
+Every unknown or changed artifact follows this path:
+
+`seen -> fetched -> hashed -> static triage -> detonation -> Glacier Window -> approved | blocked | recalled`
+
+Rules:
+
+* the 14-day timer starts after the **first clean detonation**
+* any upstream drift, signature mismatch, new malicious signal, or yank resets or blocks it
+* daily reruns happen during the Glacier Window
+* promotion writes a signed manifest update and a transparency-log entry
+
+Use upstream signatures and attestations as **evidence**, not permission. PyPI explicitly says attestations tell you where a package came from, not whether you should trust it, and npm’s registry signatures are about detecting tampering in transit or via a mirror/proxy. ([PyPI Docs][10])
+
+## The honeypot: believable, not theatrical
+
+Do not run this as “plain Docker on the host.” The best version is:
+
+* **one-shot Firecracker microVM**
+* optional inner gVisor layer when compatibility allows
+* strict seccomp
+* `no_new_privs`
+* Landlock restrictions
+* no host mounts
+* no corp network
+* no real secrets
+* no reusable state
+
+Firecracker’s own security model treats guest vCPU threads as potentially malicious and relies on nested trust zones; gVisor provides a Linux-like interface in a user-space kernel rather than passing application syscalls straight through; seccomp is syscall filtering, and Landlock is explicitly for restricting ambient rights in user space. Aya is a Rust eBPF framework and is a very good fit for the telemetry agent. ([GitHub][11])
+
+### Community honeypot
+
+Open source these pieces:
+
+* scenario runner
+* fake internet services
+* persona packs
+* public detection rules
+* telemetry schema
+* UI
+
+### Enterprise honeypot
+
+Keep private:
+
+* richer personas
+* delayed trigger content
+* cross-customer correlation
+* high-value decoy corp datasets
+* proprietary scoring rules
+* premium alert feed
+
+That gives you open adoption without giving attackers your best deception content.
+
+## What the honeypot should simulate
+
+Use a few realistic personas instead of one giant fake machine:
+
+* GitHub Actions runner
+* Rust backend developer
+* Python ML engineer
+* Node monorepo maintainer
+* Kubernetes platform admin
+
+Each persona gets believable decoys:
+
+* `.env`, deploy keys, kubeconfigs, cloud credentials
+* fake package tokens
+* `terraform.tfstate`
+* CI secrets files
+* internal docs and repo trees
+* fake metadata service at `169.254.169.254`
+* fake Git, webhook, SMTP, and artifact endpoints
+
+The box must appear rich enough to tempt malicious install hooks, build scripts, or post-install payloads, but all egress should terminate in **your own sinkhole services**. Tetragon is good for process/file/network observability and enforcement, and Falco already supports JSON outputs and forwarding into other systems. ([Tetragon][12])
+
+## The “phone home” trick
+
+Let malware think it has the internet, but never give it the internet.
+
+Use a fake network with:
+
+* DNS sinkhole
+* fake HTTP/S endpoints
+* fake SMTP
+* fake cloud metadata
+* fake secret manager
+* fake Git over HTTPS/SSH banners
+
+Capture:
+
+* DNS queries
+* destination domains
+* SNI / headers
+* request body digests
+* full payloads where safe
+* file reads immediately preceding egress
+* process lineage
+
+That correlation is where the real signal lives.
+
+## Logging and the public website
+
+Keep the **approval manifest** separate from the **threat feed**.
+
+Use the manifest only for deterministic allow/deny decisions. Put honeypot hits into a separate stream:
+
+* hourly public hit feed
+* per-artifact incident pages
+* redacted public indicators
+* enterprise webhooks / PagerDuty / Slack / email
+
+The OpenTelemetry Collector is a good backbone because it is designed to receive, process, and export logs, metrics, and traces through pipelines, and Alertmanager already handles deduplication, grouping, and routing to receivers. ([OpenTelemetry][13])
+
+Public feed records should look like:
+
+* package / repo
+* version / ref
+* first seen
+* status
+* confidence
+* trigger category
+* recommended action
+* approved fallback
+
+Keep public feeds slightly redacted so attackers cannot trivially regression-test against your best traps.
+
+## Repo layout
+
+One repo, but the honeypot must be independently releasable.
+
+```text
+frostline/
+  crates/
+    manifest-core/
+    manifest-sync/
+    safenode/
+    git-gateway/
+    registry-gateway/
+    policy-engine/
+    quarantine-router/
+    cli/
+  honeypot/
+    Cargo.toml
+    orchestrator/
+    guest-agent/
+    sinkhole-dns/
+    sinkhole-http/
+    sinkhole-imds/
+    personas/
+    rules/
+    ui/
+  web/
+  docs/
+  deploy/
+    compose/
+    k8s/
+  enterprise/
+    # private overlay, not in OSS release
+```
+
+Release two artifacts:
+
+* `frostline-platform`
+* `frostline-honeypot`
+
+That satisfies your “same repo, but download just the honeypot” requirement cleanly.
+
+## What I would not do
+
+Do not:
+
+* rely on a flat unsigned hash list
+* rely on signatures alone
+* silently swap exact pinned commits or versions
+* let honeypot runners have real outbound internet
+* reimplement the Git protocol just to be “pure Rust”
+* promise “game over” for all supply-chain attacks
+
+This design will dramatically reduce blind internet pulls, tag drift, instant exposure to fresh compromises, and install-time exfiltration, but it will not make malicious upstream maintainers or extremely delayed logic bombs disappear.
+
+## Ten names that could actually stick
+
+1. **Frostline**
+2. **FreezeTag**
+3. **Coldfront**
+4. **HarborGate**
+5. **RefShield**
+6. **Packguard**
+7. **Safebranch**
+8. **Icewall**
+9. **TreeProof**
+10. **Mirrorlock**
+
+Best naming combo:
+
+* **Platform:** Frostline
+* **14-day hold:** Glacier Window
+* **Local proxy:** Safety Node
+* **Public feed:** Frostline Watch
+
+## The single best sentence version
+
+**Frostline is a signed global trust manifest plus a tiny local Safety Node that rewrites Git and package traffic, serves only approved refs and versions, quarantines unknowns into a realistic microVM honeypot, and never lets developers or CI pull open-source code directly from the public internet.**
+
+That is the simplest version that is still genuinely strong.
+
+[1]: https://go.dev/blog/module-mirror-launch "https://go.dev/blog/module-mirror-launch"
+[2]: https://theupdateframework.io/docs/metadata/?utm_source=chatgpt.com "Roles and metadata | TUF - The Update Framework"
+[3]: https://git-scm.com/docs/hash-function-transition?utm_source=chatgpt.com "hash-function-transition Documentation"
+[4]: https://docs.pypi.org/api/index-api/?utm_source=chatgpt.com "Index API"
+[5]: https://git-scm.com/docs/git-config?utm_source=chatgpt.com "Git - git-config Documentation"
+[6]: https://git-scm.com/docs/git-config "https://git-scm.com/docs/git-config"
+[7]: https://git-scm.com/docs/git-http-backend "https://git-scm.com/docs/git-http-backend"
+[8]: https://github.com/advisories/ghsa-mrrh-fwg8-r2c3?utm_source=chatgpt.com "tj-actions changed-files through 45.0.7 allows remote ..."
+[9]: https://doc.rust-lang.org/cargo/reference/source-replacement.html?utm_source=chatgpt.com "Source Replacement - The Cargo Book"
+[10]: https://docs.pypi.org/attestations/security-model/ "https://docs.pypi.org/attestations/security-model/"
+[11]: https://github.com/firecracker-microvm/firecracker/blob/main/docs/design.md "https://github.com/firecracker-microvm/firecracker/blob/main/docs/design.md"
+[12]: https://tetragon.io/docs/ "https://tetragon.io/docs/"
+[13]: https://opentelemetry.io/docs/collector/ "https://opentelemetry.io/docs/collector/"
+
