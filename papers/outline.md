@@ -4,8 +4,8 @@
 
 **Subtitle**: *Turning first-seen code into policy events*
 
-**Abstract**:
-AI-assisted development turns dependency intake into machine-speed execution. ZitPit proposes a mandatory artifact firewall that forces external code through exact-digest admission, provenance-aware policy, and quarantine before it may execute on protected developer or CI hosts. The current public benchmark snapshot shows five public Git repositories moving from 413-821 ms upstream to 30-34 ms from approved cache and 14-16 ms from hot cache, demonstrating that the safe path can be materially faster than the public path.
+**Abstract**:  
+AI-assisted development turns dependency intake into machine-speed execution. ZitPit proposes a mandatory artifact firewall that forces external code through exact-digest admission, provenance-aware policy, and quarantine before it may execute on protected developer or CI hosts. The current public benchmark snapshot shows five public Git repositories moving from 433-1062 ms upstream medians to 32-44 ms from approved cache and 13-16 ms from hot cache, demonstrating that the safe path can be materially faster than the public path.
 
 ## I. Introduction
 
@@ -26,7 +26,7 @@ AI-assisted development turns dependency intake into machine-speed execution. Zi
 
 - acquire, build, execute, publish
 - hot lane and cold lane
-- current MVP versus target V2
+- current implementation versus roadmap
 - artifact-native approval objects
 - evidence engine versus trust oracle
 
@@ -57,7 +57,7 @@ AI-assisted development turns dependency intake into machine-speed execution. Zi
 
 - what ZitPit can say
 - what ZitPit cannot say
-- current MVP versus target V2
+- current implementation versus roadmap
 - consumer-side intake versus producer-side release failures
 
 ## VIII. Community And Reproducibility

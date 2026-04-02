@@ -1,6 +1,6 @@
-# ZitPit V2 Benchmark Matrix
+# ZitPit Benchmark Matrix
 
-This document is the source of truth for public claims about ZitPit V2.
+This document is the source of truth for public claims about ZitPit.
 
 If a claim is not backed by a benchmark family here, it should be treated as roadmap or out of scope.
 
@@ -12,8 +12,8 @@ If a claim is not backed by a benchmark family here, it should be treated as roa
 - immutable artifact boundary: tarball digest and provenance record
 - first execution boundary: install or lifecycle script
 - expected policy: first-seen artifact quarantined before execution
-- actual current behavior: not fully covered by the current MVP
-- V2 target behavior: blocked on host, executed only in cold lane
+- actual current behavior: not fully covered by the current implementation
+- roadmap target behavior: blocked on host, executed only in cold lane
 - evidence produced: install-time behavior, network attempts, file touches
 - supported claim class: install-time package attack blocked under enforced mediation
 
@@ -23,8 +23,8 @@ If a claim is not backed by a benchmark family here, it should be treated as roa
 - immutable artifact boundary: wheel or sdist hash plus provenance record
 - first execution boundary: build or startup hook
 - expected policy: quarantine before build or run
-- actual current behavior: not fully covered by the current MVP
-- V2 target behavior: build only in controlled lane
+- actual current behavior: not fully covered by the current implementation
+- roadmap target behavior: build only in controlled lane
 - evidence produced: build step traces, network attempts, file touches
 - supported claim class: Python build/startup attack contained
 
@@ -35,7 +35,7 @@ If a claim is not backed by a benchmark family here, it should be treated as roa
 - first execution boundary: build script
 - expected policy: privileged build-only approval
 - actual current behavior: partial support via current battle harnesses
-- V2 target behavior: cold-lane build with no host execution
+- roadmap target behavior: cold-lane build with no host execution
 - evidence produced: build traces, filesystem activity, egress attempts
 - supported claim class: build-script execution controlled
 
@@ -46,7 +46,7 @@ If a claim is not backed by a benchmark family here, it should be treated as roa
 - first execution boundary: workflow runner
 - expected policy: immutable pin only
 - actual current behavior: partial support in the current threat model
-- V2 target behavior: mutable refs denied or rewritten to policy-backed immutable references
+- roadmap target behavior: mutable refs denied or rewritten to policy-backed immutable references
 - evidence produced: ref resolution, pinning record, workflow provenance
 - supported claim class: workflow reference hardening
 
@@ -56,8 +56,8 @@ If a claim is not backed by a benchmark family here, it should be treated as roa
 - immutable artifact boundary: config bundle hash and policy state
 - first execution boundary: agent startup or workspace open
 - expected policy: policy-gated before host execution
-- actual current behavior: planned V2 enforcement
-- V2 target behavior: mediated by agent policy hooks and workspace policy
+- actual current behavior: planned enforcement path
+- roadmap target behavior: mediated by agent policy hooks and workspace policy
 - evidence produced: config diff, tool-call denial, policy decision
 - supported claim class: repo-open surface control
 
@@ -67,8 +67,8 @@ If a claim is not backed by a benchmark family here, it should be treated as roa
 - immutable artifact boundary: content digest after fetch
 - first execution boundary: shell or installer execution
 - expected policy: fetch through ZitPit intake or block
-- actual current behavior: not fully covered by the current MVP
-- V2 target behavior: direct fetch denied or forced through governed intake
+- actual current behavior: not fully covered by the current implementation
+- roadmap target behavior: direct fetch denied or forced through governed intake
 - evidence produced: request log, resolution record, policy decision
 - supported claim class: direct download control
 
@@ -79,7 +79,7 @@ If a claim is not backed by a benchmark family here, it should be treated as roa
 - first execution boundary: same as above
 - expected policy: allow or quarantine depending on trust state
 - actual current behavior: should not produce false positives on known-good samples
-- V2 target behavior: preserve developer speed for approved artifacts
+- roadmap target behavior: preserve developer speed for approved artifacts
 - evidence produced: latency, cache-hit rate, decision logs
 - supported claim class: usability and performance
 
@@ -88,4 +88,4 @@ If a claim is not backed by a benchmark family here, it should be treated as roa
 - public claims must map to one or more benchmark families
 - unknown coverage must be labeled roadmap or out of scope
 - lab silence does not equal safety
-- benchmark results should distinguish current MVP from target V2
+- benchmark results should distinguish current implementation from roadmap targets

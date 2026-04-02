@@ -1,12 +1,12 @@
 # ZitPit Architecture
 
-## V2 Thesis
+## Thesis
 
-ZitPit V2 is a mandatory artifact firewall and governed execution plane for AI-assisted development. The project exists to make the safe path the fast path by forcing untrusted external code through policy, provenance, and quarantine before it can execute on a protected host.
+ZitPit is a mandatory artifact firewall and governed execution plane for AI-assisted development. The project exists to make the safe path the fast path by forcing untrusted external code through policy, provenance, and quarantine before it can execute on a protected host.
 
-## Current MVP
+## Current Implementation
 
-The repository currently proves parts of the control plane, not the full end-state. The current services model is:
+The repository currently proves parts of the control plane, not the full end state. The current services model is:
 
 - `zitpit-gateway`: admin API plus a real forward proxy with `CONNECT` handling
 - `zitpit-manifest`: publishes signed manifest roots and shards from the shared store
@@ -26,7 +26,7 @@ Supporting crates keep the binaries thin:
 - `zitpit-battle-cli`: thin CLI wrapper for benchmark execution
 - `xtask`: Docker demo orchestration, SSH config generation, smoke flows, and benchmark entrypoints
 
-This MVP validates:
+This implementation validates:
 
 - request logging and decision contracts
 - signed manifest transport
@@ -37,17 +37,17 @@ This MVP validates:
 
 It does not yet claim full coverage of every package manager, IDE, or agent runtime.
 
-## Target V2 Control Plane
+## Control Plane
 
-The V2 architecture is organized around four stages:
+The architecture is organized around four stages:
 
 ### Acquire
 
-All external artifact ingress resolves through ZitPit-managed intake. Approved content is served from a local content-addressed cache. Mutable refs such as branches, tags, and `latest` are policy exceptions, not the default trust model.
+All external artifact ingress should resolve through ZitPit-managed intake. Approved content is served from a local content-addressed cache. Mutable refs such as branches, tags, and `latest` are policy exceptions, not the default trust model.
 
 ### Build
 
-Install-time and build-time execution happen only in a controlled lane. Unknown or first-seen artifacts are quarantined before any scripts, hooks, or build steps can run on the protected host.
+Install-time and build-time execution should happen only in a controlled lane. Unknown or first-seen artifacts are quarantined before scripts, hooks, or build steps can run on the protected host.
 
 ### Execute
 
@@ -59,7 +59,7 @@ Optional publisher-side controls inspect release artifacts before they leave a b
 
 ## Hot Lane And Cold Lane
 
-ZitPit V2 uses two lanes:
+ZitPit uses two lanes:
 
 - hot lane: known-good immutable artifacts served locally from cache
 - cold lane: first-seen or policy-drift artifacts quarantined for analysis and evidence generation
@@ -72,7 +72,7 @@ The cache and the trust plane share a content-addressed boundary. Approval is ke
 
 ## Provenance, Policy, And Evidence
 
-ZitPit V2 separates three steps:
+ZitPit separates three steps:
 
 1. verify provenance and identity
 2. evaluate policy
@@ -86,7 +86,7 @@ Where they happen:
 
 ## Agent-Native Enforcement
 
-ZitPit V2 treats repo-open and agent configuration as part of the supply chain. The enforcement surface includes:
+ZitPit treats repo-open and agent configuration as part of the supply chain. The enforcement surface includes:
 
 - `.claude/`
 - `.mcp.json`
@@ -97,7 +97,7 @@ ZitPit V2 treats repo-open and agent configuration as part of the supply chain. 
 
 The goal is to prevent agents from routing around the gateway by editing their own guardrails.
 
-## Current Versus Planned
+## Current Versus Roadmap
 
 Current:
 
@@ -106,7 +106,7 @@ Current:
 - quarantine planning
 - battle harnesses for selected families
 
-Planned V2:
+Roadmap:
 
 - universal artifact intake
 - exact-digest policy enforcement
@@ -114,4 +114,3 @@ Planned V2:
 - agent-policy integration
 - publisher-side release gating
 - benchmark-driven public claims
-

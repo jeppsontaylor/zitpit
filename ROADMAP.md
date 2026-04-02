@@ -1,37 +1,65 @@
-# ZitPit V2 Roadmap
+# ZitPit 1.0 Roadmap
 
-ZitPit is executing a pivot from a Git-first proxy with a honeypot to a mandatory artifact firewall and governed execution plane for AI-assisted development.
+ZitPit 1.0 establishes the public contract: first-seen external code should become a policy event before it becomes execution on a protected host, and approved immutable artifacts should remain fast enough that the safe path wins in practice.
 
-## Phase 1: Narrative Convergence
+This roadmap is intentionally written as a proof plan. Each phase tightens a claim boundary, broadens reproducible coverage, or improves the operator experience required for real adoption.
 
-- align README, architecture, threat, trust, policy, and paper language around the same V2 thesis
-- remove deception-first as the lead story
-- make the benchmark matrix the source of truth for claims
+## Phase 1: Release Discipline And Public Clarity
 
-## Phase 2: Universal Artifact Gateway
+- keep README, architecture, trust, policy, benchmarks, and paper language aligned
+- preserve crisp boundaries between implemented behavior, partial coverage, and roadmap work
+- publish benchmark snapshots, paper artifacts, and claim wording from one source of truth
+- make every public release feel reviewable, reproducible, and easy to audit
 
-- expand ingress from Git to package-manager-native artifact intake
-- treat exact digests as the primary admission object
-- make mutable refs and fallback paths explicit policy exceptions
-- keep approved artifacts on a local hot lane
+## Phase 2: Universal Intake Beyond Git
 
-## Phase 3: Provenance And Policy
+- expand mediated ingress from Git into npm, PyPI, Cargo, Go, GitHub Actions, OCI, and raw HTTP installer paths
+- resolve mutable selectors to immutable identities wherever the ecosystem allows it
+- make unsupported paths explicit instead of relying on implied coverage
+- keep approved artifacts on a low-latency hot lane
 
-- consume TUF-style freshness, expiry, and delegation semantics
-- integrate Sigstore, in-toto, and SLSA-compatible provenance signals
-- represent policy as capability-scoped verdicts
-- separate fetch, build, test, and run trust levels
+## Phase 3: Provenance-Aware Policy
 
-## Phase 4: Cold Lane Evidence
+- consume TUF-style freshness, expiry, delegation, and anti-rollback semantics
+- integrate Sigstore, in-toto, and SLSA-compatible trust inputs where available
+- add publisher continuity and publisher-drift detection for trusted packages
+- separate fetch, build, test, and run trust levels through capability-scoped verdicts
 
-- keep Mirage Lab as a quarantine and evidence engine
-- emit signed evidence packs for promotion and block decisions
-- support host recall and blast-radius lookup
-- add platform-aware and repo-control surface benchmarks
+## Phase 4: Cold-Lane Evidence And Recall
 
-## Phase 5: Publish And Agent Enforcement
+- strengthen Mirage Lab as a quarantine and evidence engine rather than a trust oracle
+- emit signed evidence packs for promotion, denial, and recall workflows
+- support host recall, blast-radius lookup, and revocation visibility
+- improve persona realism, egress controls, and operator review signals
 
-- add a publish firewall for release artifacts
-- integrate agent-native policy hooks and managed configuration
-- cover repo-controlled execution surfaces such as `.claude/` and `.mcp.json`
+## Phase 5: Agent And Workspace Enforcement
 
+- deepen policy hooks for agent runtimes, repo-open surfaces, and workspace automation
+- cover `.claude/`, `.mcp.json`, devcontainers, tasks, startup hooks, and repo-controlled execution surfaces
+- make policy state visible inside the tools developers already use
+- preserve a durable audit trail for artifact- and workspace-level execution rights
+
+## Phase 6: Publish-Side Guardrails
+
+- add release inspection for source maps, secrets, wrong-registry publishes, and workflow drift
+- connect trusted publishing, attestations, and release review into one operator flow
+- keep producer-side guarantees clearly separate from consumer-side intake guarantees
+
+## Phase 7: Stronger Public Evidence
+
+- expand benchmark families beyond the current Git smart-HTTP intake path
+- replay real incident classes with reproducible battle packs
+- capture false-positive, latency, cache-hit, and fail-closed evidence
+- publish coverage gaps openly so reviewers can see what remains out of scope
+
+## Community Help Wanted
+
+ZitPit gets better when external reviewers can attack it in public. We would especially value help with:
+
+- new benchmark families and battle packs
+- package-manager adapters and policy integration points
+- paper review, threat-model critique, and claim-boundary editing
+- reproducible incident replays and negative controls
+- operator UX, docs, examples, and onboarding polish
+
+If you want to contribute, start with [CONTRIBUTING.md](CONTRIBUTING.md), check the benchmark matrix in [BENCHMARKS.md](BENCHMARKS.md), and treat every addition as part of the public proof story.

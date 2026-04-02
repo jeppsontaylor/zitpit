@@ -11,7 +11,7 @@ The trust plane is designed around standards-backed primitives:
 - in-toto-style step attestations
 - SLSA-style provenance expectations
 
-ZitPit V2 is designed to consume these primitives progressively. The current repository does not claim to fully implement every standard end to end.
+ZitPit is designed to consume these primitives progressively. The current repository does not claim to fully implement every standard end to end.
 
 ## Hashes, Identity, And Provenance
 
@@ -60,4 +60,3 @@ The trust plane should make stale decisions obvious rather than hidden.
 ## Multi-Point Verification
 
 The project itself should be bootstrapped through multiple trust anchors, but those anchors are only part of the story. They are useful for defending ZitPit distribution, not for replacing provenance policy inside the product.
-

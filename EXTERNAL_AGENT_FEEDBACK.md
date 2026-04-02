@@ -1,37 +1,45 @@
-# ZitPit Technical Feedback & Independent Review Document (V2)
+# ZitPit Technical Feedback & Independent Review Document
 
-**Intended Audience:** External Security Researchers, Agentic Workflow Engineers, and Open Source Architects
-**Purpose:** To provide an exhaustive technical breakdown of the ZitPit V2 defense architecture, its four-stage policy pipeline, and benchmark-driven proof strategy. This document serves to secure alignment, eliminate ambiguities around claims, and solicit targeted feedback.
+**Intended Audience:** External security researchers, agentic workflow engineers, and open-source architects  
+**Purpose:** To provide a concise technical breakdown of the ZitPit 1.0 architecture, its four-stage policy pipeline, its benchmark-driven proof strategy, and the areas where outside review can most improve the project.
 
 ---
 
-## 1. Executive Summary & V2 Pivot
+## 1. Executive Summary
 
-The original ZitPit architecture proved the concept of routing autonomous agent workflows through a local choke-point. However, responding to feedback from senior security engineers across the industry, V2 pivots from a **"Git-first proxy with a honeypot"** to a **"Mandatory Artifact Firewall and Governed Execution Plane."**
+ZitPit started by proving that autonomous agent workflows could be routed through a local choke point. The project has since matured into a clearer `1.0` posture: a **mandatory artifact firewall and governed execution plane** for AI-assisted development.
 
-We are shifting the center of gravity: deception (the Mirage Lab) is no longer the primary security guarantee. Our absolute invariant is **admission control and provenance-backed governance**. 
+The core invariant is straightforward:
 
-### The Revised Posture
-*   **Artifacts over Git Trees**: We enforce policy based on exact artifact digests (npm tarballs, PyPI wheels), not merely repository tree hashes.
-*   **Standards, Not Bespoke Hashes**: We consume TUF freshness bounds, Sigstore identities, and SLSA provenance.
-*   **Cold-Lane First-Run**: "First-seen" unapproved third-party artifacts *do not* execute on protected developer or CI environments. They are held in quarantine (Mirage Lab) until policy executes.
+**First-seen external code should become a policy event before it becomes execution on a protected host.**
+
+That means the center of gravity is admission control, immutable identity, provenance-aware policy, and quarantine when required. The Mirage Lab remains important, but it is an evidence engine, not the root trust model.
+
+### The Current Posture
+
+*   **Artifacts over Git trees**: policy should bind to exact artifact digests and immutable identities, not only repository tree hashes.
+*   **Standards, not bespoke trust**: the trust plane is designed to consume TUF, Sigstore, in-toto, and SLSA-style inputs.
+*   **Cold-lane first run**: unknown or drifted artifacts should not execute on protected developer or CI environments before policy review.
 
 ---
 
 ## 2. Public Claims & Constraints
 
-We write for skeptical security reviewers, avoiding absolute marketing claims.
+We write for skeptical security reviewers and try to keep the claim boundary strict.
 
-### ✅ Bold Claims (True for V2 Build)
-*   **Policy Over Execution**: ZitPit turns first-seen external code from an execution event into a policy event.
-*   **Hermetic Default**: In enforced environments, unknown third-party artifacts do not execute on protected developer machines or CI runners before digest resolution, policy evaluation, and quarantine when required.
-*   **Safe Path = Fast Path**: ZitPit serves approved artifacts locally while forcing new artifacts through governed intake.
-*   **Incident Resilience (The Axios Scenario)**: Under enforced ZitPit protection (exact-digest approvals, no direct egress bypass, default-deny install execution, and first-seen quarantine), the March 31, 2026 Axios install-time RAT compromise would likely have been blocked from executing on protected developer and CI endpoints.
+### Claims we believe are supportable
 
-### ❌ Claims We Strictly Avoid
+*   **Policy over execution**: ZitPit turns first-seen external code from an execution event into a policy event.
+*   **Hermetic default posture**: in enforced environments, unknown third-party artifacts should not execute on protected developer machines or CI runners before digest resolution, policy evaluation, and quarantine when required.
+*   **Safe path = fast path**: ZitPit serves approved artifacts locally while forcing new artifacts through governed intake.
+*   **Consumer-side incident resilience**: under enforced mediation, exact-digest approvals, and no bypass, short-lived install-time supply-chain compromises should be containable before they hit the protected host.
+
+### Claims we avoid
+
 *   "ZitPit ends supply-chain attacks forever."
-*   "If Anthropic had used this, none of the Claude Code incident would have happened." (The Claude Code incident was an upstream publishing error, not an intake attack. Our new `Publish Gate` answers that.)
-*   "Keeping the honeypot private is our security model." (Security rests on the admission boundary, not obscurity.)
+*   "Every AI tooling incident would have been prevented by ZitPit."
+*   "The lab is the security model."
+*   "Hash equality means software is safe."
 
 ---
 
@@ -39,20 +47,31 @@ We write for skeptical security reviewers, avoiding absolute marketing claims.
 
 ZitPit protects environments across four boundaries:
 
-1.  **Acquire**: All external artifacts resolve through `zitpit-gateway`. Exact immutable digests are the enforcement unit. Mutable tags/refs (`latest`) are policy exceptions.
-2.  **Build**: Install/build scripts (e.g., `postinstall`, `build.rs`) never run on the protected host before policy approval. They are relegated to cold-lane or quarantine execution.
-3.  **Execute**: Agent execution privileges are explicitly managed (e.g., `.claude/` setting enforcement, `PreToolUse` hook control). We use an "Agent Capsule" to isolate the agent from ambient host secrets.
-4.  **Publish**: The `zitpit-publish` release gate ensures that developers cannot accidentally ship secrets or source maps upwards into registry supply chains.
+1. **Acquire**: external artifacts resolve through `zitpit-gateway`, with immutable identity as the enforcement unit wherever possible.
+2. **Build**: install/build scripts such as `postinstall` and `build.rs` should not run on the protected host before policy approval.
+3. **Execute**: agent execution privileges, workspace surfaces, and tool use are mediated as policy surfaces.
+4. **Publish**: optional release inspection can catch packaging drift, source-map leaks, and related release hygiene failures.
 
 ---
 
-## 4. The Mirage Lab: Evidence over Magic
+## 4. Mirage Lab: Evidence Over Magic
 
-The Mirage Lab remains crucial but its role is narrowed. It is an **evidence engine and cold-lane detonation system**.
-*   **Multi-Persona Execution**: Evaluates artifacts against Linux CI environments, macOS laptops, and isolated containers.
-*   **Evidence Bundling**: Every block/promotion decision generates a signed evidence pack, establishing a trail for retroactive blast-radius search and recall operations.
+The Mirage Lab remains crucial, but its role is narrower and more honest:
+
+*   **Multi-persona execution**: evaluate artifacts in controlled Linux, macOS-style, or containerized personas.
+*   **Evidence bundling**: every block, promotion, or recall decision should produce evidence that operators can inspect later.
+*   **Cold-lane support**: the lab helps classify and enrich decisions; it should not be the only barrier between unknown code and the protected host.
 
 ---
 
-### We Request Your Help
-Review our [BENCHMARKS.md](BENCHMARKS.md) to inspect the specific threat matrix we validate against. We invite you to scrutinize our admission unit logic, TUF integrations, and cold-lane execution wrappers.
+## 5. Where We Want Community Help
+
+Review [BENCHMARKS.md](BENCHMARKS.md) to inspect the threat matrix we validate against. We would especially value help with:
+
+*   attack-family benchmarks and benign controls
+*   ecosystem adapters for npm, PyPI, Cargo, Go, OCI, and raw installer paths
+*   repo-open and agent-surface enforcement design
+*   provenance and policy review
+*   paper critique, threat-model pressure testing, and reproducibility review
+
+If you want to stress-test the project, that is welcome. The fastest way to make ZitPit better is to make the claim boundary sharper in public.

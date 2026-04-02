@@ -1,14 +1,14 @@
 # ZitPit Quickstart
 
-Welcome to the ZitPit defensive perimeter. This guide will help you get the current MVP demo environment running quickly.
+Welcome to the ZitPit defensive perimeter. This guide will help you get the current demo environment running quickly.
 
-The public benchmark matrix in [BENCHMARKS.md](../BENCHMARKS.md) defines the supported claim boundaries. This quickstart demonstrates the current Git intake path, not the full target V2 surface.
+The public benchmark matrix in [BENCHMARKS.md](../BENCHMARKS.md) defines the supported claim boundaries. This quickstart demonstrates the current Git intake path and operator workflow, not every roadmap surface.
 
 ## Prerequisites
 
 *   **Rust (latest stable)**: [rustup.rs](https://rustup.rs/)
 *   **Docker & Docker Compose**: For the containerized demo services.
-*   **Linux (recommended)**: For full SSH-proxy interception. macOS/Windows are supported for the local Git/HTTP proxy through manual configuration.
+*   **Linux (recommended)**: For full SSH-proxy interception. macOS and Windows are supported for the local Git/HTTP proxy through manual configuration.
 
 ## Step 1: Verify the Repository
 
@@ -53,4 +53,4 @@ git ls-remote https://github.com/jeppsontaylor/approved.git
 *   Read the [Operator Guide](operator-guide.md) for detailed configuration.
 *   Check the [Agent Setup](agent-setup.md) to integrate with tools like Antigravity or Cursor.
 *   Review [CLAIMS.md](../CLAIMS.md) and [BENCHMARKS.md](../BENCHMARKS.md) before making public claims.
-*   Understand our [Trust Model](trust-model.md).
+*   Understand the [Trust Model](trust-model.md).

@@ -6,7 +6,7 @@
 
 ## Abstract
 
-AI-assisted development turns dependency intake into machine-speed execution. ZitPit is a mandatory artifact firewall that forces external code through exact-digest admission, provenance-aware policy, and quarantine before it may execute on protected developer or CI hosts. In the current public benchmark snapshot, five public Git repositories show `web` intake of 413-821 ms, approved disk-cache hits of 30-34 ms, and hot-cache hits of 14-16 ms, with `N=1` sample per repo. ZitPit uses that speed delta to make **the safe path the fast path**: first-seen artifacts are policy events, approved artifacts stay local and fast, and repo-open surfaces such as `.claude/`, `.mcp.json`, and devcontainers are treated as supply-chain input rather than ambient workspace state.
+AI-assisted development turns dependency intake into machine-speed execution. ZitPit is a mandatory artifact firewall that forces external code through exact-digest admission, provenance-aware policy, and quarantine before it may execute on protected developer or CI hosts. In the current public benchmark snapshot, five public Git repositories show `web` medians of 433-1062 ms, approved disk-cache medians of 32-44 ms, and hot-cache medians of 13-16 ms, with `N=5` samples per repo. ZitPit uses that speed delta to make **the safe path the fast path**: first-seen artifacts are policy events, approved artifacts stay local and fast, and repo-open surfaces such as `.claude/`, `.mcp.json`, and devcontainers are treated as supply-chain input rather than ambient workspace state.
 
 ## 1. Introduction
 
@@ -22,7 +22,7 @@ ZitPit is a mandatory artifact intake gate, not a Git proxy or a honeypot-first 
 
 ## 2. Consumer Intake vs Producer Release
 
-The criticism that shaped V2 was useful because it exposed a distinction the first draft blurred: consumer-side intake attacks and producer-side release failures are related but not identical problems.
+The criticism that shaped the current architecture was useful because it exposed a distinction the first draft blurred: consumer-side intake attacks and producer-side release failures are related but not identical problems.
 
 ### 2.1 Consumer-side intake attacks
 
@@ -42,7 +42,7 @@ These are different. A source-map leak, wrong-registry publish, or packaging dri
 
 ## 3. Architecture
 
-ZitPit V2 is organized around four stages:
+ZitPit is organized around four stages:
 
 - `Acquire`: all external artifact ingress resolves through ZitPit-managed intake
 - `Build`: install-time and build-time code runs only in a controlled lane
@@ -54,11 +54,11 @@ The architecture uses two lanes:
 - **Hot lane**: approved immutable artifacts are served from the local cache or hot cache
 - **Cold lane**: first-seen or untrusted artifacts are quarantined and analyzed before they can influence the host
 
-### 3.1 Current MVP vs Target V2
+### 3.1 Current implementation vs roadmap
 
-The current codebase proves part of the control plane, not the whole end-state.
+The current codebase proves part of the control plane, not the whole end state.
 
-| Layer | Current MVP | Target V2 |
+| Layer | Current implementation | Roadmap |
 | --- | --- | --- |
 | Acquire | Git smart-HTTP mediation, approved disk cache, in-memory hot cache, benchmark harness | Universal artifact gateway for npm, PyPI, Cargo, Go, GitHub Actions, raw HTTP downloads, and repo-open surfaces |
 | Build | Controlled cold-lane execution for approved Git intake paths and battle packs | Hermetic build lanes for package ecosystems and install scripts |
@@ -69,7 +69,7 @@ The current codebase proves part of the control plane, not the whole end-state.
 
 ZitPit does not treat hash equality as trust. Hashes are useful, but hash equality is not provenance.
 
-The V2 trust plane is designed to consume standards-backed inputs:
+The trust plane is designed to consume standards-backed inputs:
 
 - TUF-style freshness, expiry, delegation, and rollback protection
 - Sigstore-style identity-bound signing and transparency evidence
@@ -108,23 +108,21 @@ Public claims should be grounded in a benchmark matrix. The benchmark set curren
 - raw HTTP installer fetches
 - benign controls for the same families
 
-For the Git intake path, the current demonstration run used five public repositories and `N=1` sample per repo. The observed values were:
+For the Git intake path, the current public demonstration run used five public repositories and `N=5` samples per repo. The observed medians were:
 
-| repo | web | cache | hot-cache | cache vs web | hot-cache vs web |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| git | 413 ms | 34 ms | 15 ms | 12.1x | 27.5x |
-| go | 479 ms | 30 ms | 16 ms | 16.0x | 29.9x |
-| node | 697 ms | 31 ms | 14 ms | 22.5x | 49.8x |
-| cpython | 821 ms | 31 ms | 15 ms | 26.5x | 54.7x |
-| terraform | 755 ms | 33 ms | 16 ms | 22.9x | 47.2x |
-
-Median across the five-repo run: `web` 697 ms, `cache` 31 ms, `hot-cache` 15 ms.
+| repo | web | cache | hot-cache |
+| --- | ---: | ---: | ---: |
+| git | 433 ms | 43 ms | 15 ms |
+| go | 492 ms | 44 ms | 16 ms |
+| node | 734 ms | 32 ms | 13 ms |
+| cpython | 1062 ms | 35 ms | 14 ms |
+| terraform | 582 ms | 39 ms | 15 ms |
 
 Figure 1 shows the speedup snapshot generated from [`docs/benchmarks/latest.json`](../docs/benchmarks/latest.json). Figure 2 shows the simple control-plane diagram.
 
 ![Current five-repo speedup snapshot](../assets/figures/speedup.svg)
 
-*Figure 1. Current five-repo demonstration run. The benchmark is intentionally small, public, and reproducible, with `N=1` sample per repo.*
+*Figure 1. Current five-repo demonstration run. The benchmark is intentionally small, public, and reproducible, with `N=5` samples per repo.*
 
 ![ZitPit control-plane diagram](../assets/figures/network.svg)
 
@@ -137,7 +135,7 @@ For each benchmark, ZitPit should report:
 - first execution boundary
 - expected policy
 - actual current behavior
-- V2 target behavior
+- roadmap target behavior
 - evidence produced
 - supported claim class
 
@@ -166,6 +164,8 @@ The public wording should stay aligned with [`CLAIMS.md`](../CLAIMS.md).
 ZitPit is open source, and the benchmark matrix is public. That matters because the point of the project is not to hide the model; it is to make the model inspectable, reproducible, and extendable.
 
 The battle packs are intentionally community-extendable. Contributors can add new ecosystem adapters, new release scenarios, and new evidence cases without changing the core claim structure. Future work may widen coverage across other package managers and workflow systems, but the trust statement remains the same: first-seen code is a policy event, not ambient trust.
+
+We want community help on benchmark design, ecosystem adapters, threat-model critique, battle packs, docs, and real-world incident replay cases. A world-class open-source security project should invite pressure, not hide from it.
 
 ## 9. Limits
 
