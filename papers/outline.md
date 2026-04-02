@@ -1,37 +1,41 @@
 # ZitPit Research Paper Outline
 
-**Title**: *ZitPit: A Mandatory Artifact Firewall and Governed Execution Plane for Agentic Software Supply Chains*
+**Title**: *ZitPit: The Artifact Firewall for Agentic Software Supply Chains*
 
-**Abstract**:
-AI-assisted development turns dependency intake into machine-speed execution. ZitPit proposes a mandatory artifact firewall that forces external code through exact-digest admission, provenance-aware policy, and quarantine before it may execute on protected developer or CI hosts. We show how this reduces exposure to install-time attacks, repo-controlled execution surfaces, and release-path drift while preserving developer speed through local caching.
+**Subtitle**: *Turning first-seen code into policy events*
+
+**Abstract**:  
+AI-assisted development turns dependency intake into machine-speed execution. ZitPit proposes a mandatory artifact firewall that forces external code through exact-digest admission, provenance-aware policy, and quarantine before it may execute on protected developer or CI hosts. The current public benchmark snapshot shows five public Git repositories moving from 433-1062 ms upstream medians to 32-44 ms from approved cache and 13-16 ms from hot cache, demonstrating that the safe path can be materially faster than the public path.
 
 ## I. Introduction
 
-- AI agents and software intake at machine speed
-- why manual review and static scanning are insufficient
-- the safe path must be the fast path
+- agent speed and internet-scale code intake
+- recent npm, PyPI, and agent-tool incidents
+- consumer-side intake risk versus producer-side release leaks
+- why the safe path must be the fast path
 
-## II. Threat Model
+## II. Consumer Intake vs Producer Release
 
 - malicious registry publishes
 - install/build scripts and startup hooks
 - repo-controlled execution surfaces
-- agent bypass attempts
-- rollback, freeze, and stale-fallback risk
+- raw HTTP installers and mutable refs
+- release hygiene and publish gates
 
 ## III. Architecture
 
 - acquire, build, execute, publish
 - hot lane and cold lane
+- current implementation versus roadmap
 - artifact-native approval objects
-- provenance, policy, and evidence separation
+- evidence engine versus trust oracle
 
 ## IV. Trust Model
 
-- exact digest is not the same as provenance
+- hash equality is not provenance
 - TUF-style freshness and delegation
 - Sigstore, in-toto, and SLSA integration goals
-- revocation and recall
+- revocation, recall, and unsupported ingress
 
 ## V. Mirage Lab And Evidence
 
@@ -42,21 +46,28 @@ AI-assisted development turns dependency intake into machine-speed execution. Zi
 
 ## VI. Evaluation
 
+- current five-repo speedup snapshot
 - benchmark matrix and incident replay
-- install-time package attacks
-- repo-controlled execution surface cases
+- repo-open surface cases
 - benign controls and false-positive analysis
 - cache-hit latency versus public fetch latency
+- simple control-plane diagram
 
-## VII. Discussion
+## VII. Claims And Limits
 
-- what ZitPit can claim
-- what ZitPit cannot claim
-- current MVP versus target V2
-- publisher-side release firewall as future work
+- what ZitPit can say
+- what ZitPit cannot say
+- current implementation versus roadmap
+- consumer-side intake versus producer-side release failures
 
-## VIII. Conclusion
+## VIII. Community And Reproducibility
+
+- public benchmark matrix
+- community-extendable battle packs
+- future ecosystem adapters
+- open-source claim boundaries
+
+## IX. Conclusion
 
 - ZitPit as an artifact firewall for agentic development
 - safer defaults for smaller teams and open-source consumers
-

@@ -1,0 +1,262 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext}
+\usepackage{newtxmath}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{url}
+\usepackage{cite}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+\usepackage{balance}
+
+\hypersetup{
+  colorlinks=false,
+  pdfauthor={Jepson Taylor, Chris Brousseau, Jordan Hildebrandt, Kelli Quinn},
+  pdftitle={ZitPit: The Artifact Firewall for Agentic Software Supply Chains}
+}
+
+\definecolor{boxfill}{RGB}{247,248,250}
+\definecolor{boxstroke}{RGB}{206,214,224}
+\definecolor{ink}{RGB}{29,39,51}
+
+\setlength{\textfloatsep}{10pt plus 2pt minus 2pt}
+\setlength{\floatsep}{8pt plus 2pt minus 2pt}
+\renewcommand{\arraystretch}{1.05}
+
+\newcommand{\product}{ZitPit}
+\newcommand{\paperbox}[1]{%
+\vspace{0.4em}\noindent%
+\fcolorbox{boxstroke}{boxfill}{%
+\parbox{\dimexpr\columnwidth-2\fboxsep-2\fboxrule\relax}{#1}}%
+\vspace{0.45em}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+\begin{document}
+
+\twocolumn[
+\begin{@twocolumnfalse}
+\begin{center}
+{\LARGE\bfseries \product: The Artifact Firewall for Agentic Software Supply Chains\par}
+\vspace{0.15em}
+{\large Turning First-Seen Code into Policy Events\par}
+\vspace{0.28em}
+{\normalsize Jepson Taylor \hspace{0.75em} Chris Brousseau \hspace{0.75em} Jordan Hildebrandt \hspace{0.75em} Kelli Quinn\par}
+\vspace{0.04em}
+{\small \texttt{jepson@veox.ai} \hspace{0.55em} \texttt{chris@veox.ai} \hspace{0.55em} \texttt{j@veox.ai} \hspace{0.55em} \texttt{kelli@veox.ai}\par}
+\vspace{0.10em}
+{\small VEOX Research Group\par}
+{\small \url{https://github.com/jeppsontaylor/zitpit}\par}
+\vspace{0.22em}
+\end{center}
+
+\begin{abstract}
+AI IDEs and coding agents compress search, dependency intake, workspace open, and execution into one low-observability loop. In that setting, a repository clone, package install, workflow reference, shell bootstrap, or repo-scoped agent configuration can cross from discovery to execution before a human reaches a durable review checkpoint. \product{} is a 100\% open-source Rust system released under the MIT license for consumer-side software intake in agentic development environments. It resolves external requests to immutable identities when possible, creates durable policy events before protected-host execution, routes first-seen artifacts into a controlled evidence lane, and accelerates approved artifacts through local cache and in-memory hot cache. This paper defines the system's claim boundary, threat model, policy model, and trust inputs, and reports preliminary public evidence from repeated Git smart-HTTP intake benchmarks plus a broader attack-family coverage matrix. The paper's central claim is narrow and enforceable: first-seen external code becomes a policy event before it becomes execution on a protected host.
+\end{abstract}
+
+\vspace{0.08em}
+\noindent\textbf{Index Terms}---software supply chain security, AI agents, artifact firewall, provenance, quarantine, governed execution, observability
+\vspace{0.12em}
+\begin{center}
+\resizebox{0.94\textwidth}{!}{\includegraphics{figures/opener_comparison_reportlab.pdf}}
+
+\vspace{0.1em}
+\parbox{0.94\textwidth}{\footnotesize \textbf{Fig. 1.} Without mediation, human and agent requests can move external code directly toward host execution; with \product{}, requests are held behind policy check and quarantine before the protected host.}
+\end{center}
+\vspace{0.12em}
+\end{@twocolumnfalse}
+]
+
+\section{Introduction}
+
+Imagine a developer asking an AI IDE to ``set up this repo and wire in observability.'' In the next few seconds the tool may search for a package, clone a repository, open project memory files, read repo-scoped agent settings, start a devcontainer, install dependencies, and invoke helper scripts. The human often sees prompts, shell output, or a final working state, but not a durable checkpoint where newly discovered external code has been resolved, reviewed, and granted execution rights under a stable policy. In practice the operator is often approving \emph{intent} rather than concrete external artifacts.
+
+What internet culture loosely calls ``vibe coding'' is more precisely \emph{agent-mediated development under weak operator visibility}. The security problem is not only that a package might be malicious. It is that discovery, fetch, configuration, installation, repo-open state, and execution now collapse into one conversational loop with poor artifact-level observability. Claude Code documentation reflects this operational reality directly through npm-based installation, project-scoped MCP configuration, hooks, devcontainer guidance, and working-tree memory files such as \texttt{CLAUDE.md} \cite{anthropicGettingStarted2026,anthropicMcp2026,anthropicHooks2026,anthropicMemory2026,anthropicDevcontainer2026}. GitHub similarly documents that third-party workflow actions should be pinned to immutable SHAs because mutable references create trust ambiguity exactly where automation is strongest \cite{githubActionsHardening2026}.
+
+This pressure is especially acute for small teams. Large enterprises may have internal mirrors, provenance pipelines, and release engineering staff. Smaller organizations and solo developers often have the same speed incentives without those controls. OpenSSF's guidance for AI code assistants explicitly calls out prompt injection, package confusion, and automation risks that grow when tools act faster than humans can verify \cite{openssfAICode2025}. The result is a three-part collapse: time from discovery to execution shrinks, artifact-level visibility degrades, and agents inherit cross-domain authority to search, fetch, open, install, and run.
+
+Recent incidents show why this matters. The Axios npm compromise of March 31, 2026 demonstrated how a short-lived install-time compromise can become an immediate downstream problem for developer and CI environments that inherit trust too early \cite{datadogAxios2026,snykAxios2026}. More broadly, the modern intake surface includes repo-open configuration and execution points that older supply-chain discussions often treated as inert: npm lifecycle scripts, Rust \texttt{build.rs}, repo-local hooks, MCP server definitions, devcontainers, startup tasks, and mutable workflow references \cite{npmPackageJson2026,cargoBuildScripts2026,anthropicHooks2026}.
+
+\paperbox{\textbf{Why traditional review collapses in agentic development.} Older software intake assumed a sequence such as \emph{discover $\rightarrow$ inspect $\rightarrow$ decide $\rightarrow$ install $\rightarrow$ execute}. Agentic development often inverts that into \emph{discover $\rightarrow$ install/open/run $\rightarrow$ inspect later}. \product{} exists to restore a durable decision and audit boundary at the artifact layer rather than at the final command or prompt layer.}
+
+\product{} is built around a narrow claim with operational consequences: first-seen external code should become a policy event before it becomes an execution event, and approved immutable artifacts should stay on a faster path than unmanaged public fetch. This paper makes three contributions: it defines a crisp claim boundary for consumer-side agentic software intake; it describes a mediated architecture and policy model that restore artifact-level observability; and it reports preliminary but public evidence that the governed path can remain fast while broader attack families are made explicit and auditable.
+
+\section{Scope and Claim Boundary}
+
+\product{} intentionally makes a narrower claim than ``solve software supply-chain security.'' The paper is about consumer-side mediation: the point at which external code, workflow references, or repo-open state cross into execution rights on a protected developer or CI host. Producer-side release hygiene still matters, but it is treated as complementary rather than as the main evaluated control.
+
+\paperbox{
+\footnotesize
+\begin{tabularx}{\linewidth}{@{}L{0.29\linewidth}Y@{}}
+\textbf{Consumer intake (in scope)} & Repository fetches, package installs, mutable workflow refs, raw bootstraps, and repo-open execution surfaces are mediated before protected-host execution. \\[0.35em]
+\textbf{Producer release (complementary)} & Trusted publishing, attestations, and release firewalls matter, but they are not the central evaluated control in this paper. \\
+\end{tabularx}
+
+\vspace{0.5em}
+\textbf{In-scope claim.} First-seen external code does not execute on protected hosts before policy evaluation and capability grant.
+
+\textbf{Non-claims.} Trusted maintainers may still be malicious; producer-side release leaks need publish controls; unsupported off-path fetches are outside the guarantee; sandbox silence does not imply safety.
+}
+
+\section{Threat Model and Definitions}
+
+\paperbox{\textbf{Definitions.} An \emph{artifact} is the external code object or repo-scoped execution bundle being mediated: a Git ref target, package tarball, wheel, crate source, workflow action, raw installer payload, or repo-open configuration surface. \emph{First-seen} means first observed by the ZitPit-mediated trust domain for a given immutable identity, not merely first seen by one process or laptop. A \emph{policy event} is the durable record created when a selector is resolved, evaluated, and granted or denied capability. A \emph{protected host} is a developer or CI environment whose execution rights are gated by \product{}. A \emph{repo-open surface} is working-tree content that can trigger execution or tool behavior simply by opening or operating in the repository.}
+
+\begin{table}[t]
+\caption{Threat model and assumptions}
+\label{tab:threat}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2pt}
+\begin{tabularx}{\columnwidth}{@{}L{0.16\columnwidth}L{0.20\columnwidth}L{0.11\columnwidth}L{0.18\columnwidth}Y@{}}
+\toprule
+\textbf{Asset} & \textbf{Adversary} & \textbf{In scope} & \textbf{Control point} & \textbf{Residual risk} \\
+\midrule
+Host execution rights & Malicious upstream package or repo & Yes & Immutable resolution + policy event & Trusted publisher compromise remains possible \\
+CI workflow integrity & Mutable action refs or unsafe workflow reuse & Yes & Full-SHA policy and mediated fetch & Off-runner reuse outside mediation is not covered \\
+Local secrets and state & Repo-open hooks, MCP, devcontainers, startup tasks & Part. & Capability gate before repo-open execution & IDE integration depth varies by tool \\
+Network egress & Raw bootstrap downloads or installer scripts & Part. & Controlled cold lane and mediated fetch path & Direct unmanaged egress is out of scope unless separately blocked \\
+Release hygiene & Wrong registry publish or source-map leak & Ext. & Trusted publishing and release controls & Not the paper's primary evaluated guarantee \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The threat model assumes that protected hosts are not already fully compromised, that mediated paths are mandatory or transparently redirected, and that the approval store and local trust root remain intact. The system's primary goals are to resolve external code to immutable identities before execution, grant execution through capability-scoped policy rather than ambient trust, and record artifact-level audit events that survive beyond a single prompt or shell command. The non-goals are equally important: \product{} does not claim to eliminate software supply-chain risk universally, to prove trusted publishers benign, or to convert sandbox quiet into a proof of safety.
+
+\section{Architecture and Policy}
+
+\subsection{Acquire (Implemented)}
+
+The current implementation is strongest on intake mediation. Requests from agents, IDEs, or CI runners first hit a gateway that resolves selectors onto the strongest available immutable identity. Policy, provenance, cache state, and revocation live in the control plane behind that gateway, while protected-host execution rights are granted only after verdict evaluation. For Git this means the smart-HTTP path and resolved commit identity; for other surfaces it means exact digests, pinned SHAs, or equivalent immutable selectors wherever the ecosystem allows it. Floating tags, branch heads, and \texttt{latest} are treated as policy exceptions rather than default trust.
+
+\subsection{Controlled Build Lane (Partial)}
+
+Many ecosystems blur fetch and execution into one step. npm lifecycle scripts, Python source distributions, Cargo build scripts, and shell installers can all execute during installation \cite{npmPackageJson2026,cargoBuildScripts2026}. \product{} therefore separates acquisition from build. First-seen or policy-sensitive artifacts fall into Mirage Lab, the system's \emph{cold-lane evidence engine}, before those execution surfaces touch a protected host.
+
+\subsection{Agent Observability and Decision Boundaries (Partial)}
+
+Current AI IDE controls are often command-aware, not artifact-aware. They may ask whether a shell command or tool call may run, but not whether newly discovered external code has earned execution rights under immutable identity, provenance, freshness, and capability policy \cite{anthropicSecurity2026,anthropicHooks2026}. \product{} treats repo-open state as supply-chain input for this reason: MCP definitions, hooks, devcontainers, memory files, startup tasks, and similar working-tree artifacts can cause execution before a human reads the repository.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.96\columnwidth]{figures/cursor_zitt.png}
+\caption{Example deployment inside an existing IDE terminal. The mediation signal is conveyed through terminal-state color and status output rather than IDE-specific branding, so protected intake remains visible without requiring a custom editor experience or implying vendor endorsement.}
+\label{fig:cursor}
+\end{figure}
+
+This matters for deployment realism. The operator should be able to stay inside familiar environments such as Cursor or other IDE terminals while still getting a clear signal that intake is being mediated and that the protected path is active. The point is not product integration as advertising; it is that a mandatory intake boundary is easier to adopt when it appears as a visible safety state inside tools developers already use.
+
+\paperbox{\textbf{Artifact policy event fields.} initiator or agent session; requested selector; resolved immutable identity; provenance result; verdict; evidence ID; granted capability; timestamp; host or CI context. This is the missing audit boundary in many agentic workflows: a durable, artifact-aware record of why execution rights were granted.}
+
+\subsection{Publish-Side Controls (Extension)}
+
+Publish-side controls matter, but they are treated here as a side-band extension rather than a central stage of the evaluated system. Release firewalls, trusted publishing, and artifact attestations help with source-map leaks, wrong-registry publishes, and workflow drift, but they solve a different part of the problem than the intake contract defended in this paper.
+
+\paperbox{\textbf{Design invariants.} (1) First-seen code is a policy event. (2) Immutable identity comes before protected-host execution. (3) The safe path must remain fast enough that developers and agents have less incentive to bypass the control plane.}
+
+\subsection{Capability-Scoped Policy}
+
+Binary allow-or-block logic is too coarse for agentic development. \product{} uses capability-scoped verdicts so that fetching bytes, building in quarantine, testing without secrets, and executing on a protected host are separated decisions rather than one inherited permission.
+
+\begin{table}[t]
+\caption{Capability-scoped verdicts}
+\label{tab:verdicts}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2pt}
+\begin{tabularx}{\columnwidth}{@{}L{0.25\columnwidth}L{0.24\columnwidth}Y@{}}
+\toprule
+\textbf{Verdict} & \textbf{Typical use} & \textbf{Execution conditions} \\
+\midrule
+\texttt{FETCH\_ONLY} & First-seen dependency or repo bundle & Download allowed; protected-host execution denied \\
+\texttt{BUILD\_NO\_NETWORK} & sdist build, \texttt{build.rs}, installer analysis & Controlled lane only; no general egress \\
+\texttt{TEST\_NO\_SECRETS} & Benign package or repo validation & Isolated test lane; no sensitive material \\
+\texttt{RUN\_DEV} & Approved developer dependency & Protected-host execution allowed under freshness policy \\
+\texttt{RUN\_CI} & Approved CI dependency or action & CI execution allowed under stronger identity and expiry checks \\
+\texttt{BLOCKED} & Malicious, unsupported, or stale input & Denied pending expiry, recall, or operator action \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paperbox{\textbf{Lifecycle.} \texttt{Unknown} $\rightarrow$ \texttt{FETCH\_ONLY} $\rightarrow$ \texttt{BUILD\_NO\_NETWORK} or \texttt{TEST\_NO\_SECRETS} $\rightarrow$ \texttt{RUN\_DEV} or \texttt{RUN\_CI} $\rightarrow$ \texttt{Expired}, \texttt{Revoked}, or \texttt{BLOCKED}. Promotion depends on immutable binding, provenance or freshness signals, and cold-lane evidence when required.}
+
+Digest equality matters because it creates immutable identity, but identity alone is not provenance. \product{} is designed to consume stronger trust signals when they exist: TUF-style freshness and anti-rollback semantics \cite{tufDocs2026,tufPaper2016}, Sigstore transparency-backed signing \cite{sigstoreDocs2026}, in-toto attestations \cite{intotoDocs2026,intotoPaper2019}, SLSA provenance \cite{slsaDocs2026}, GitHub artifact attestations \cite{githubArtifactAttestations2026}, npm trusted publishing \cite{npmTrustedPublishing2026}, and PyPI attestations and trusted publishing paths \cite{pypiAttestations2026,pypiTrustedPublishing2026}. The system's role is enforcement and mediation: it consumes identity and provenance signals where available and compensates with explicit policy when they are absent.
+
+\section{Preliminary Evaluation}
+
+The current evaluation is intentionally split into two proof obligations. The first is \emph{deployability}: can the governed path remain fast enough for real developer and CI use? The second is \emph{security coverage}: which attack families are actually mediated today, and how honest is the remaining boundary?
+
+\subsection{Performance and Deployability}
+
+The public benchmark harness measures the Git smart-HTTP intake path rather than a full repository clone. Specifically, it times repeated \texttt{git ls-remote} / \texttt{info/refs} style mediation across five public repositories: \texttt{git}, \texttt{go}, \texttt{node}, \texttt{cpython}, and \texttt{terraform}. Each repository is measured in three modes: direct upstream request (\texttt{web}), approved disk-cache hit (\texttt{cache}), and approved in-memory hot-cache hit (\texttt{hot-cache}) \cite{zitpitBench2026}. The current public snapshot uses \(N=5\) samples per repository and reports medians plus p95 values.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{figures/speedup.pdf}
+\caption{Preliminary deployability result for the Git smart-HTTP intake path. Bars show repository-level medians across \(N=5\) samples; whiskers show p95. Repository-level web medians ranged from 433--1062~ms, cache medians from 32--44~ms, and hot-cache medians from 13--16~ms. The workload is mediated smart-HTTP intake, not a full clone.}
+\label{fig:speed}
+\end{figure*}
+
+The current result is modest but operationally important. Repository-level web medians range from 433 to 1062~ms, approved disk-cache medians from 32 to 44~ms, and hot-cache medians from 13 to 16~ms. Even in this small public run, the safe path is not the slow path. That matters because a mandatory intake control will be bypassed under real development pressure if approved artifacts are slower than direct public fetch.
+
+\subsection{Security Coverage and Attack Families}
+
+\begin{table*}[t]
+\caption{Attack-family coverage matrix}
+\label{tab:coverage}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}L{0.13\textwidth}L{0.14\textwidth}L{0.16\textwidth}L{0.10\textwidth}L{0.18\textwidth}L{0.21\textwidth}@{}}
+\toprule
+\textbf{Surface} & \textbf{First execution boundary} & \textbf{Control point} & \textbf{Status} & \textbf{Evidence source} & \textbf{Residual risk} \\
+\midrule
+Git clone / fetch & checkout, follow-on build, or workspace open & smart-HTTP mediation and immutable ref binding & Implemented & repeated public benchmark harness \cite{zitpitBench2026} & unmanaged Git paths outside mediation \\
+npm lifecycle scripts & install or postinstall hook & cold-lane build / execution separation & Partial & benchmark matrix + battle packs \cite{zitpitBenchmarkMatrix2026} & native package-manager integration still incomplete \\
+Python sdist / startup & build hook or startup import path & controlled build lane and policy gate & Partial & benchmark matrix + scenario packs \cite{zitpitBenchmarkMatrix2026} & wheel/sdist mediation not universal yet \\
+Cargo \texttt{build.rs} & compile-time build script & controlled build lane with no-network verdicts & Partial & benchmark matrix + Cargo scenarios \cite{zitpitBenchmarkMatrix2026} & broader Cargo-native interception remains future work \\
+GitHub Actions mutable refs & workflow runner & full-SHA policy and selector resolution & Partial & workflow hardening scenarios \cite{zitpitBenchmarkMatrix2026} & off-runner use or unmediated workflows \\
+Raw \texttt{curl | bash} & shell execution & mediated fetch path and cold-lane detonation & Partial & shell installer scenarios \cite{zitpitBenchmarkMatrix2026} & direct unmanaged egress if host bypasses intake control \\
+Repo-open surfaces (\texttt{.mcp.json}, hooks, devcontainers) & workspace open or tool startup & workspace policy + execution gate & Partial & workspace / repo-open scenarios \cite{zitpitBenchmarkMatrix2026} & enforcement depth varies by IDE and agent runtime \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Three representative attack families show the intended boundary. First, install-time package attacks should become policy events before lifecycle hooks execute on the protected host. Second, build-time execution such as Rust \texttt{build.rs} should be granted only in a controlled lane rather than inherited from fetch. Third, repo-open execution surfaces should be treated as supply-chain input, not inert project metadata. The coverage matrix is intentionally public because the credibility of the paper depends on visible support boundaries rather than implied universality.
+
+This is still preliminary evaluation. The current paper does not claim a full cross-ecosystem empirical study; it claims that the deployability argument is already visible in repeated public latency data and that the security claim boundary is explicit enough to audit, extend, and attack in public.
+
+\section{Limitations and Next Proof Obligations}
+
+\textbf{Trusted publisher compromise.} \product{} does not make trusted maintainers harmless. A malicious publisher with valid identity can still ship bad code; provenance, freshness, recall, and external intelligence remain necessary.
+
+\textbf{Unsupported ingress and bypass.} Any unmanaged path that fetches code outside the mediated domain weakens the guarantee. The correct status for those paths is ``unsupported'' rather than ``secure enough.'' This is especially important for browser downloads, vendored code drops, and local copies that never cross the intake boundary.
+
+\textbf{Evidence limits.} The cold-lane evidence engine improves ordering and observability, but it is not a safety oracle. Dynamic analysis can miss dormant or trigger-dependent behavior, and a quiet run cannot prove future benign behavior.
+
+\textbf{Operational burden and availability.} Policy systems create approval workload and potential bottlenecks. A mediation layer also becomes part of the trusted computing base and part of the availability story.
+
+\textbf{Current proof obligations.} The next technical step is not bigger rhetoric. It is broader mediation coverage, stronger provenance consumption, repeated multi-run evaluation across more ecosystems, clearer CI fail-closed evidence, and tighter publish-side controls where release hygiene matters.
+
+\section{Related Work}
+
+\product{} overlaps with several established lines of work, but it is not reducible to any one of them. Package mirrors and internal artifact repositories improve locality and availability, yet they do not by themselves create artifact-level policy events or capability-scoped host execution. Provenance systems such as TUF, in-toto, SLSA, Sigstore, GitHub artifact attestations, npm trusted publishing, and PyPI attestations provide the vocabulary and evidence needed to reason about publication identity and freshness \cite{tufDocs2026,tufPaper2016,intotoDocs2026,intotoPaper2019,slsaDocs2026,sigstoreDocs2026,githubArtifactAttestations2026,npmTrustedPublishing2026,pypiAttestations2026,pypiTrustedPublishing2026}. \product{} is intended to consume and enforce those signals when available, not to replace them with a parallel trust universe.
+
+The system also differs from sandboxing and honeypot work. Mirage Lab is useful because it creates evidence and ordering, not because detonation proves safety. Likewise, \product{} differs from command-centric AI IDE approval systems. Command approvals operate at the level of terminal or tool invocations; \product{} aims to restore a durable artifact-level trust decision in workflows where repository open, transitive installation, and agent-controlled tool use can outrun human review \cite{anthropicSecurity2026,anthropicHooks2026}.
+
+\section{Conclusion}
+
+\product{} starts from a practical observation about agentic development: the interval between discovering external code and executing external code is collapsing toward zero. That collapse changes the default security problem. What used to be a repository review problem is now an admission-control problem spanning registries, raw downloads, workflow engines, and repo-open execution surfaces.
+
+The paper's contract is intentionally narrow. First-seen external code becomes a policy event before it becomes execution on a protected host. Approved immutable artifacts stay on a faster path through cache and hot cache. Everything else in the paper supports that claim: the scope boundary, the threat model, the control-plane architecture, the capability model, the preliminary evaluation, and the explicit limitations. The next step is not bigger claims. It is broader mediation coverage, stronger evidence, and sharper proof that unsafe first-seen software stays off protected hosts until it has earned capability through policy.
+
+\balance
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

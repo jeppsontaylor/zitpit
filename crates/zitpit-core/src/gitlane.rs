@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeMap,
+    ffi::OsString,
     num::NonZeroUsize,
     path::{Path, PathBuf},
     process::Stdio,
@@ -565,7 +566,8 @@ impl GitSmartHttpAdapter {
         upstream: &ResolvedGitUpstream,
         repo_root: &Path,
     ) -> Result<(), GitLaneError> {
-        let output = Command::new("git")
+        let mut command = git_command_with_safe_directories(upstream, Some(repo_root));
+        let output = command
             .arg("clone")
             .arg("--mirror")
             .arg(&upstream.fetch_url)
@@ -590,7 +592,8 @@ impl GitSmartHttpAdapter {
         upstream: &ResolvedGitUpstream,
         repo_root: &Path,
     ) -> Result<(), GitLaneError> {
-        let output = Command::new("git")
+        let mut command = git_command_with_safe_directories(upstream, Some(repo_root));
+        let output = command
             .arg("-C")
             .arg(repo_root)
             .arg("remote")
@@ -608,7 +611,8 @@ impl GitSmartHttpAdapter {
             )));
         }
 
-        let output = Command::new("git")
+        let mut command = git_command_with_safe_directories(upstream, Some(repo_root));
+        let output = command
             .arg("-C")
             .arg(repo_root)
             .arg("remote")
@@ -841,6 +845,42 @@ fn safe_repo_dir(source_url: &str) -> String {
     crate::manifest::digest_for(source_url)[..16].to_string()
 }
 
+fn git_command_with_safe_directories(
+    upstream: &ResolvedGitUpstream,
+    repo_root: Option<&Path>,
+) -> Command {
+    let mut command = Command::new("git");
+    for path in git_safe_directories(upstream, repo_root) {
+        command.arg("-c");
+        command.arg(OsString::from(format!(
+            "safe.directory={}",
+            path.to_string_lossy()
+        )));
+    }
+    command
+}
+
+fn git_safe_directories(upstream: &ResolvedGitUpstream, repo_root: Option<&Path>) -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    if let Some(path) = seeded_mirror_path(upstream) {
+        paths.push(path);
+    }
+    if let Some(repo_root) = repo_root {
+        paths.push(repo_root.to_path_buf());
+    }
+    paths
+}
+
+fn seeded_mirror_path(upstream: &ResolvedGitUpstream) -> Option<PathBuf> {
+    if upstream.mode != GitUpstreamMode::SeededMirror {
+        return None;
+    }
+    upstream
+        .fetch_url
+        .strip_prefix("file://")
+        .map(PathBuf::from)
+}
+
 fn upstream_fetch_detail(prefix: &str, source_url: &str, upstream: &ResolvedGitUpstream) -> String {
     match upstream.mode {
         GitUpstreamMode::SeededMirror => format!(
@@ -950,7 +990,12 @@ async fn git_capture(repo_root: &Path, args: &[&str]) -> Result<String, GitLaneE
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, fs, path::Path, process::Command};
+    use std::{
+        collections::BTreeMap,
+        fs,
+        path::{Path, PathBuf},
+        process::Command,
+    };
 
     use bytes::Bytes;
     use http::{Method, header::HeaderMap};
@@ -959,7 +1004,8 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        GitSmartHttpAdapter, GitUpstreamMode, resolve_git_upstream_with_env, upstream_fetch_detail,
+        GitSmartHttpAdapter, GitUpstreamMode, git_safe_directories, resolve_git_upstream_with_env,
+        seeded_mirror_path, upstream_fetch_detail,
     };
     use crate::{
         ApprovalStatus, CacheDomain, CacheEntry, Ecosystem, ManifestRecord, MemoryStore,
@@ -1007,6 +1053,29 @@ mod tests {
 
     fn test_safe_repo_dir(source_url: &str) -> String {
         crate::manifest::digest_for(source_url)[..16].to_string()
+    }
+
+    #[test]
+    fn seeded_mirror_safe_directories_include_upstream_and_repo_root() {
+        let upstream = super::ResolvedGitUpstream {
+            fetch_url: "file:///var/lib/zitpit/git/upstream/jeppsontaylor/approved.git".to_string(),
+            mode: GitUpstreamMode::SeededMirror,
+        };
+        let repo_root = Path::new("/var/lib/zitpit/git/approved/1234/jeppsontaylor/approved.git");
+
+        assert_eq!(
+            seeded_mirror_path(&upstream),
+            Some(PathBuf::from(
+                "/var/lib/zitpit/git/upstream/jeppsontaylor/approved.git"
+            ))
+        );
+        assert_eq!(
+            git_safe_directories(&upstream, Some(repo_root)),
+            vec![
+                PathBuf::from("/var/lib/zitpit/git/upstream/jeppsontaylor/approved.git"),
+                PathBuf::from("/var/lib/zitpit/git/approved/1234/jeppsontaylor/approved.git"),
+            ]
+        );
     }
 
     #[tokio::test]

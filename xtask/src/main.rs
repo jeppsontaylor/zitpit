@@ -717,6 +717,7 @@ fn demo_down() -> Result<()> {
     if !paths.env_file.exists() {
         return Ok(());
     }
+    cleanup_demo_runtime_contents(&paths)?;
     run_command(
         docker_command()
             .args(["compose", "--env-file"])
@@ -820,15 +821,28 @@ async fn demo_smoke() -> Result<()> {
         bail!("workspace git config did not include ZitPit proxy");
     }
 
-    let approved_first = run_ssh_timed(
-        &ssh_base,
-        "git ls-remote https://github.com/jeppsontaylor/approved.git",
-    )?;
+    let approved_probe = git_smart_http_probe_command(&paths.approved_source);
+    let unknown_probe = git_smart_http_probe_command(&paths.unknown_source);
+    let real_public_probe = git_smart_http_probe_command(&paths.real_public_source);
+
+    let approved_first = run_ssh_timed(&ssh_base, &approved_probe)?;
     if !approved_first.output.status.success() {
         bail!(
-            "approved repo first fetch failed: {}",
+            "approved repo first fetch failed: {}{}",
+            String::from_utf8_lossy(&approved_first.output.stdout),
             String::from_utf8_lossy(&approved_first.output.stderr)
         );
+    }
+    let approved_first_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&approved_first.output.stdout),
+        String::from_utf8_lossy(&approved_first.output.stderr)
+    );
+    if !approved_first_output.contains("ZITPIT_HTTP_STATUS:200") {
+        bail!("approved repo first fetch did not return HTTP 200: {approved_first_output}");
+    }
+    if !approved_first_output.contains("git-upload-pack") {
+        bail!("approved repo first fetch did not return Git smart-HTTP service data");
     }
     let approved_first_lifecycle =
         find_git_lifecycle_since(&admin, &paths.approved_source, approved_first.started_at).await?;
@@ -841,15 +855,21 @@ async fn demo_smoke() -> Result<()> {
         bail!("approved repo first fetch did not perform an upstream acquisition");
     }
 
-    let approved_cached = run_ssh_timed(
-        &ssh_base,
-        "git ls-remote https://github.com/jeppsontaylor/approved.git",
-    )?;
+    let approved_cached = run_ssh_timed(&ssh_base, &approved_probe)?;
     if !approved_cached.output.status.success() {
         bail!(
-            "approved repo cache-hit fetch failed: {}",
+            "approved repo cache-hit fetch failed: {}{}",
+            String::from_utf8_lossy(&approved_cached.output.stdout),
             String::from_utf8_lossy(&approved_cached.output.stderr)
         );
+    }
+    let approved_cached_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&approved_cached.output.stdout),
+        String::from_utf8_lossy(&approved_cached.output.stderr)
+    );
+    if !approved_cached_output.contains("ZITPIT_HTTP_STATUS:200") {
+        bail!("approved repo cache-hit fetch did not return HTTP 200: {approved_cached_output}");
     }
     let approved_cached_lifecycle =
         find_git_lifecycle_since(&admin, &paths.approved_source, approved_cached.started_at)
@@ -863,36 +883,30 @@ async fn demo_smoke() -> Result<()> {
         bail!("approved repo second fetch did not hit the approved cache");
     }
 
-    let unknown_result = run_ssh_timed(
-        &ssh_base,
-        "git ls-remote https://github.com/jeppsontaylor/unknown.git",
-    )?;
-    if unknown_result.output.status.success() {
-        bail!("unknown repo unexpectedly succeeded");
-    }
+    let unknown_result = run_ssh_timed(&ssh_base, &unknown_probe)?;
     let unknown_output = format!(
         "{}{}",
         String::from_utf8_lossy(&unknown_result.output.stdout),
         String::from_utf8_lossy(&unknown_result.output.stderr)
     );
+    if !unknown_output.contains("ZITPIT_HTTP_STATUS:503") {
+        bail!("unknown repo response did not return HTTP 503: {unknown_output}");
+    }
     if !unknown_output.contains("check back in about") {
         bail!("unknown repo response did not include retry guidance: {unknown_output}");
     }
     let unknown_lifecycle =
         find_git_lifecycle_since(&admin, &paths.unknown_source, unknown_result.started_at).await?;
 
-    let real_public_result = run_ssh_timed(
-        &ssh_base,
-        "git ls-remote https://github.com/axios/axios.git",
-    )?;
-    if real_public_result.output.status.success() {
-        bail!("real public repo unexpectedly succeeded without approval");
-    }
+    let real_public_result = run_ssh_timed(&ssh_base, &real_public_probe)?;
     let real_public_output = format!(
         "{}{}",
         String::from_utf8_lossy(&real_public_result.output.stdout),
         String::from_utf8_lossy(&real_public_result.output.stderr)
     );
+    if !real_public_output.contains("ZITPIT_HTTP_STATUS:503") {
+        bail!("real public repo response did not return HTTP 503: {real_public_output}");
+    }
     if !real_public_output.contains("check back in about") {
         bail!("real public repo response did not include retry guidance: {real_public_output}");
     }
@@ -1046,20 +1060,11 @@ async fn demo_smoke() -> Result<()> {
                 "interactive fail-closed login",
                 &interactive_fail_closed,
             ),
-            approved_first: CommandSummary::from_timed_command(
-                "git ls-remote https://github.com/jeppsontaylor/approved.git",
-                &approved_first,
-            ),
-            approved_cached: CommandSummary::from_timed_command(
-                "git ls-remote https://github.com/jeppsontaylor/approved.git",
-                &approved_cached,
-            ),
-            unknown_pending: CommandSummary::from_timed_command(
-                "git ls-remote https://github.com/jeppsontaylor/unknown.git",
-                &unknown_result,
-            ),
+            approved_first: CommandSummary::from_timed_command(&approved_probe, &approved_first),
+            approved_cached: CommandSummary::from_timed_command(&approved_probe, &approved_cached),
+            unknown_pending: CommandSummary::from_timed_command(&unknown_probe, &unknown_result),
             real_public_pending: CommandSummary::from_timed_command(
-                "git ls-remote https://github.com/axios/axios.git",
+                &real_public_probe,
                 &real_public_result,
             ),
             bypass_attempt: CommandSummary::from_output(
@@ -1213,6 +1218,12 @@ fn render_ssh_config(metadata: &DemoSetupMetadata) -> String {
     )
 }
 
+fn git_smart_http_probe_command(source_url: &str) -> String {
+    format!(
+        "curl -sS --proxy http://zitpit-gateway:3004 -H 'Git-Protocol: version=2' -D - -o - -w '\\nZITPIT_HTTP_STATUS:%{{http_code}}\\n' '{source_url}/info/refs?service=git-upload-pack'"
+    )
+}
+
 fn print_setup_completion(metadata: &DemoSetupMetadata) -> Result<()> {
     println!();
     println!("ZitPit does not edit your local SSH config automatically.");
@@ -1279,7 +1290,7 @@ fn safe_repo_dir(source_url: &str) -> String {
 
 fn reset_demo_state(paths: &DemoPaths) -> Result<()> {
     if paths.runtime.data_dir.exists() {
-        fs::remove_dir_all(&paths.runtime.data_dir).with_context(|| {
+        remove_demo_path(&paths.runtime.data_dir).with_context(|| {
             format!(
                 "remove existing demo runtime state {}",
                 paths.runtime.data_dir.display()
@@ -1287,6 +1298,71 @@ fn reset_demo_state(paths: &DemoPaths) -> Result<()> {
         })?;
     }
     Ok(())
+}
+
+fn cleanup_demo_runtime_contents(paths: &DemoPaths) -> Result<()> {
+    if !paths.runtime.data_dir.exists() {
+        return Ok(());
+    }
+    let runtime_dir = "/var/lib/zitpit";
+    let service_name = "zitpit-gateway";
+    let status = docker_command()
+        .args(["compose", "--env-file"])
+        .arg(&paths.env_file)
+        .args([
+            "-f",
+            "compose.yaml",
+            "exec",
+            "-T",
+            "-u",
+            "0",
+            service_name,
+            "sh",
+            "-lc",
+            &format!("rm -rf {runtime_dir}/* {runtime_dir}/.[!.]* {runtime_dir}/..?* || true"),
+        ])
+        .status();
+
+    match status {
+        Ok(status) if status.success() => Ok(()),
+        Ok(_) | Err(_) => Ok(()),
+    }
+}
+
+fn remove_demo_path(path: &Path) -> Result<()> {
+    match fs::remove_dir_all(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+            remove_demo_path_via_container(path).with_context(|| {
+                format!("remove demo state {} via docker fallback", path.display())
+            })?;
+            fs::remove_dir_all(path).with_context(|| {
+                format!("remove demo state {} after docker fallback", path.display())
+            })
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+
+fn remove_demo_path_via_container(path: &Path) -> Result<()> {
+    let absolute = path
+        .canonicalize()
+        .with_context(|| format!("canonicalize demo state path {}", path.display()))?;
+    let parent = absolute
+        .parent()
+        .context("demo state path must have a parent directory")?;
+    let leaf = absolute
+        .file_name()
+        .and_then(|name| name.to_str())
+        .context("demo state path must end in a valid UTF-8 directory name")?;
+
+    let mut command = docker_command();
+    command
+        .args(["run", "--rm", "-v"])
+        .arg(format!("{}:/target", parent.display()))
+        .args(["--entrypoint", "sh", "zitpit-service:dev", "-lc"])
+        .arg(format!("rm -rf /target/{leaf}"));
+    run_command(&mut command)
 }
 
 fn timed_compose_build(paths: &DemoPaths, no_cache: bool) -> Result<u128> {

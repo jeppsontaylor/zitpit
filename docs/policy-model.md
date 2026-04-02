@@ -12,7 +12,7 @@ ZitPit uses policy to decide whether an external artifact may be fetched, unpack
 
 ## Verdicts
 
-ZitPit V2 uses capability-scoped verdicts:
+ZitPit uses capability-scoped verdicts:
 
 - `FETCH_ONLY`
 - `UNPACK_ONLY`
@@ -96,4 +96,3 @@ Promotion decisions may use:
 If ZitPit does not currently mediate an ingress path, the policy response is explicit unsupported status rather than implied safety.
 
 The policy engine should not pretend that unsupported coverage is a success case.
-

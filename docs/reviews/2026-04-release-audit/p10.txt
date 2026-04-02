@@ -1,0 +1,702 @@
+I reviewed the full six-page draft, including the abstract and contribution framing on page 1, the intake-vs-release distinction and threat model on page 2, the control-plane diagram and capability table on page 3, the screenshots and benchmark table on page 4, the bar chart and roadmap on page 5, and the conclusion/references on page 6. 
+
+This has a **very strong backbone**. The best sentence in the paper is the core claim: **first-seen external code becomes a policy event before it becomes an execution event**. That is memorable, defensible, and genuinely useful. The paper also does two things right that many security drafts get wrong: it clearly separates **consumer-side intake** from **producer-side release**, and it explicitly says the sandbox is **not** a proof-of-safety oracle. Those choices increase credibility immediately. 
+
+The biggest issue is not the idea. The biggest issue is that the draft currently reads like **three papers at once**:
+
+1. a security position paper about agentic development,
+2. a system paper describing an artifact mediation architecture,
+3. an early prototype note with a small benchmark snapshot.
+
+That mismatch is where security and AI reviewers will push hardest. Right now the conceptual framing is stronger than the empirical proof, while some of the layout choices make the paper feel more product/demo-like than research-like.
+
+## My top-line diagnosis
+
+### What is already strong
+
+The paper has a real thesis, not just a product description. The language around immutable identity, capability-scoped execution, cold-lane evidence, and honest non-claims is good. The distinction between “artifact identity” and “artifact provenance” is also strong. The conclusion is notably disciplined; it avoids the usual “we solve supply-chain security forever” trap and returns to a narrower, enforceable contract. 
+
+### What weakens it
+
+The draft still overreaches slightly in structure even when the prose is careful. The system overview presents **Acquire / Build / Execute / Publish** as if all four are equally part of the paper’s demonstrated system, but the rest of the draft is much stronger on intake than on publish-side release controls. The evaluation is honest about being small, but because it is the main quantitative evidence, it invites a “nice demo, not yet a paper-quality evaluation” response. The screenshots and duplicate visualization of the same benchmark data spend precious page budget on visuals that do not do enough analytical work. 
+
+## The single biggest recommendation
+
+Pick a lane more explicitly:
+
+### Option A: Position/system paper with prototype evidence
+
+This is the best fit for the current draft.
+
+If you take this route, the paper should say:
+
+* here is the problem,
+* here is the claim boundary,
+* here is the architecture,
+* here is the policy model,
+* here is early evidence that the fast path can be safe and fast,
+* here is the open evaluation harness for future challenge.
+
+That framing would make the current evidence feel appropriate rather than underpowered.
+
+### Option B: Full systems security evaluation paper
+
+If this is the goal, the evaluation must get much bigger:
+
+* repeated latency runs with percentiles,
+* attack replay outcomes across ingress surfaces,
+* bypass testing,
+* false-positive / operational burden discussion,
+* CI and team deployment results,
+* a clearer implemented-vs-roadmap split.
+
+Right now the draft feels much closer to **A** than **B**.
+
+---
+
+# Layout and formatting review
+
+## 1. Title and subtitle
+
+The title is strong: **“ZitPit: The Artifact Firewall for Agentic Software Supply Chains.”** It sounds serious, current, and scoped correctly. The subtitle is also good, but I would change **“Turning First-Seen Code into Policy Events”** to **“Turning First-Seen Artifacts into Policy Events.”**
+
+Why that matters:
+
+* the paper is explicitly broader than code repositories,
+* it covers workflow references, configs, install scripts, devcontainers, and repo-open surfaces,
+* “artifact” aligns better with the actual thesis than “code.”
+
+That one word change would tighten the paper’s conceptual consistency.
+
+## 2. Visual balance across pages
+
+Pages 1 and 2 are very dense with prose, while pages 4 and 5 spend large amounts of space on screenshots and a chart built from a tiny dataset. The page budget is not being used optimally. 
+
+My recommendation:
+
+* reduce the density of page 1 with a crisper abstract and a smaller motivating example,
+* use page 2 for a **threat model figure or taxonomy table**,
+* reclaim some of page 4/5 from screenshots and duplicated benchmark visuals,
+* spend that space on **attack coverage**, **threat boundaries**, and **sequence-of-control**.
+
+## 3. Tone and diction
+
+The overall tone is disciplined, but a few phrases drift into blog/product language:
+
+* “magic safety oracle”
+* “theatrical detonation”
+* “accelerator, not a lecture”
+* “source of truth”
+
+They are vivid, but in a security paper they can sound a little defensive or performative. I would replace them with calmer, more technical phrasing. The paper is strongest when it sounds like a control-plane paper, not a manifesto.
+
+## 4. Consistency of terminology
+
+You have too many named metaphors competing at once:
+
+* artifact firewall
+* control plane
+* hot cache
+* cold lane
+* Mirage Lab
+* governed execution
+* policy event
+
+Most of these are individually good, but together they create branding noise. I would standardize around three primary terms:
+
+* **Artifact firewall** for the overall system role
+* **Cold lane** for quarantine / evidence collection
+* **Capability verdicts** for policy outcomes
+
+Use “Mirage Lab” once as the implementation name of the cold-lane sandbox, not as a parallel conceptual term.
+
+Also standardize:
+
+* hot cache vs hot-cache
+* repo-open vs repo open
+* first-seen vs first seen
+
+Those small consistency issues matter more in a short paper.
+
+---
+
+# Structural critique
+
+## 1. The paper needs a stronger “claim boundary” section earlier
+
+Section II is one of the best parts of the paper. I would actually elevate it and rename it something like:
+
+**II. Claim Boundary: Intake Attacks vs Release Failures**
+
+That framing is powerful. It answers a reviewer’s first hostile question before they ask it. It also protects you from future overclaiming.
+
+Right now the paper makes that distinction well, but it still feels like a subsection in a longer narrative. It should feel like a central guardrail.
+
+A strong addition here would be a compact table:
+
+| Incident class   | Example type                     |  Covered by this paper? | Primary control                 |
+| ---------------- | -------------------------------- | ----------------------: | ------------------------------- |
+| Consumer intake  | malicious package install script |                     Yes | mediation + cold lane + verdict |
+| Consumer intake  | mutable GitHub Action ref        |                     Yes | immutable resolution + policy   |
+| Consumer intake  | repo-open MCP/devcontainer abuse |                     Yes | repo-open execution gating      |
+| Producer release | accidental source-map leak       | No, not by intake alone | publish firewall                |
+| Producer release | wrong-registry publish           | No, not by intake alone | outbound release policy         |
+
+That single table would do a lot of defensive work.
+
+## 2. The threat model needs to be more formal
+
+Section III has the right ingredients but not yet the right shape. It lists surfaces well, but it still reads as “what we worry about” rather than a formal threat model. Security reviewers will want:
+
+* **Assets**: developer secrets, CI tokens, workspace integrity, cache integrity, policy store, build outputs
+* **Adversaries**: malicious publisher, compromised maintainer, typosquatter, malicious repository config, curious or reckless agent
+* **Trust boundaries**: protected host, gateway, cold lane, upstream internet, operator
+* **Assumptions**: host not already compromised, supported ingress is mediated, operator approvals can be wrong, provenance may be absent
+* **Non-goals**: malicious approved maintainers, unsupported ingress, release leaks without publish controls
+
+Right now the section gestures at this, but does not fully operationalize it. A threat-boundary diagram on page 2 would help enormously. 
+
+## 3. Publish should not sit as an equal peer unless you really evaluate it
+
+Section IV’s four-stage model is elegant, but **Publish** currently feels more like a companion idea than part of the paper’s demonstrated core. If the paper remains intake-first, I would either:
+
+* move Publish into discussion / future work, or
+* label it explicitly as an extension of the architecture, not a co-equal implemented stage.
+
+At the moment it risks creating avoidable skepticism: “Are they actually evaluating publish-side controls, or just mentioning them?”
+
+## 4. Roadmap is the weakest section structurally
+
+A full section called **Community Roadmap** feels more like a whitepaper than a research paper. I like the content, but I would compress it into a short **Future Work** subsection under Limitations or Discussion.
+
+That space is better spent on:
+
+* attack coverage,
+* implementation status,
+* bypass resistance,
+* operator workflow,
+* policy scope.
+
+---
+
+# Section-by-section feedback
+
+## Abstract
+
+### What works
+
+The abstract identifies the core problem clearly: agentic tooling compresses discovery, download, installation, workspace open, and execution into one fast path. That is exactly the right framing. 
+
+### What to fix
+
+The abstract is too dense, and the benchmark numbers hurt more than they help because they are attached to **N=1 per repo**. That kind of number belongs in the evaluation, not as a flagship abstract result.
+
+### What I would change
+
+Make the abstract do four things only:
+
+1. define the problem,
+2. define the core intervention,
+3. define the paper’s scope,
+4. describe the evidence level honestly.
+
+A stronger abstract would say:
+
+* AI IDEs collapse trust-boundary review latency,
+* ZitPit mediates first-seen artifacts before execution,
+* the paper separates intake from release failures,
+* the paper presents architecture plus early prototype evidence.
+
+I would remove the specific repo timing numbers from the abstract.
+
+## Introduction
+
+### What works
+
+The intro is conceptually strong and grounded in actual agentic workflows: GitHub, dependencies, MCP, devcontainers, helper scripts. The contribution list is clear.
+
+### What is missing
+
+The paper still does not fully name the social/operational mess you want it to speak to: **low-discipline agent-mediated experimentation**, what people informally call “vibe coding.”
+
+I would add one paragraph that says, in more formal language:
+
+* the problem is not just AI assistance,
+* it is rapid trust transfer from the public internet to developer/CI hosts,
+* often under weak review discipline,
+* often in IDEs and agent shells that obscure exactly what ran.
+
+That paragraph would make the paper speak directly to the current moment without sounding unserious.
+
+Also: define **agentic software supply chains** explicitly the first time you use the phrase.
+
+## Section II: Consumer Intake vs Producer Release
+
+This is one of your best sections. Keep it. Expand it slightly. It is doing important claim-discipline work.
+
+My only change would be to make it slightly more formal and slightly more visual. A one-table classification would make this section much stronger.
+
+## Section III: Problem Setting and Threat Model
+
+This section needs more precision.
+
+### Add these questions explicitly
+
+* What counts as **first-seen**? Per machine, per user, per organization, per cache, or per digest?
+* What counts as **external**?
+* What is the scope of **approved**? Global, repo-specific, org-specific, time-bounded?
+* What are the bypass assumptions?
+* What are the supported and unsupported ingress paths today?
+
+Without answers to those, reviewers will feel the model is conceptually good but operationally underspecified.
+
+## Section IV: System Overview
+
+### Acquire / Build / Execute
+
+These are good and clean. The prose is readable.
+
+### Publish
+
+Either separate it or clearly mark it as an extension.
+
+### Mirage Lab and policy evidence
+
+Good section. Honest section. Keep the core stance.
+
+But I would add one more sentence:
+
+* what evidence is actually recorded,
+* how that evidence affects verdicts,
+* whether quiet execution merely permits promotion review rather than automatic approval.
+
+That would keep the system from seeming over-automated.
+
+## Section V: Artifact Intake and Governed Execution
+
+### Security invariants
+
+Excellent content. These should be visually emphasized more. They are central enough to become a boxed callout.
+
+### Capability-scoped policy
+
+Good concept, but the table is too terse.
+
+The current table gives names and one-sentence descriptions, but I would rather see a matrix with columns like:
+
+* network allowed?
+* secret access?
+* repo-open execution?
+* host execution?
+* CI execution?
+* TTL / freshness requirement?
+
+That would make the verdicts feel operational, not just nominal.
+
+### Trust inputs
+
+Strong section conceptually. One of the better technical paragraphs in the paper. But it would benefit from a small data model illustration:
+
+* artifact identity,
+* origin,
+* freshness,
+* evidence,
+* revocation state,
+* allowed capabilities.
+
+### Deployment and operator experience
+
+This section is useful, but it currently reads more like product documentation than paper prose. The `cargo run -p xtask -- demo setup` block is fine for a README, but in the paper it takes up prime real estate while not answering a deep research question. 
+
+I would either:
+
+* move the command listing to an appendix/supplement, or
+* replace it with a sequence diagram showing first-seen request → policy miss → cold lane → verdict → later approved cache hit.
+
+That would do much more work for the paper.
+
+## Section VI: Performance and Coverage Evaluation
+
+This is the section that needs the most work.
+
+### What is good
+
+The section is honest. It says the benchmark matrix is public and that the Git timing data is a demonstration, not a full latency study. That honesty helps.
+
+### What will get attacked
+
+* N=1 per repo
+* only five repos
+* only Git latency as the main quantitative graph
+* weak link between performance evidence and security claim
+* no bypass evaluation
+* no attack replay table in the main paper
+* no operator-friction or policy-throughput evidence
+
+### What to do
+
+At minimum, rename this to something like:
+**VI. Early Prototype Evidence**
+or
+**VI. Initial Performance Snapshot and Coverage Boundary**
+
+Then add a second evaluation table that focuses on **security outcome**, not just speed. For example:
+
+| Attack surface     | Example event            | Baseline risk          | ZitPit control point         | Host execution prevented? | Current status                |         |
+| ------------------ | ------------------------ | ---------------------- | ---------------------------- | ------------------------: | ----------------------------- | ------- |
+| npm install script | first-seen package       | install-time execution | cold lane / build-no-network |                       Yes | implemented / demo            |         |
+| Cargo build.rs     | first-seen crate         | build-time execution   | build isolation              |                       Yes | implemented / demo            |         |
+| GitHub Action tag  | mutable ref              | trust ambiguity        | immutable resolution         |                       Yes | prototype                     |         |
+| `.mcp.json`        | repo-open tool expansion | auto-config execution  | repo-open policy gate        |                       Yes | prototype                     |         |
+| `curl              | bash`                    | raw installer          | immediate shell execution    | direct-download mediation | Partial / supported mode only | roadmap |
+
+That kind of table would make the paper feel much more serious.
+
+## Section VII: Limitations and Concerns
+
+This section is strong in spirit and should stay.
+
+I would add three more explicit limitations:
+
+* **approval poisoning**: a bad approval can still accelerate bad code,
+* **ZitPit trust bootstrap**: the system itself becomes part of the trust base,
+* **policy fatigue**: if first-seen volume is too high, operators may rubber-stamp.
+
+Those are exactly the kinds of “seasoned reviewer” objections you want to preempt.
+
+## Section VIII: Community Roadmap
+
+Good content, wrong place. Move it to future work or trim it heavily.
+
+## Section IX: Related Work
+
+This is currently too short for the weight of the paper.
+
+You need a clearer positioning paragraph or comparison table versus:
+
+* provenance systems,
+* package mirrors/proxies,
+* software update frameworks,
+* sandbox/detonation systems,
+* static scanning approaches,
+* repo / workflow hardening practices.
+
+The current references are good ingredients, but the paper needs a stronger sentence answering:
+**Why is ZitPit not just TUF + cache + sandbox + mirror?**
+
+That is the question a lot of reviewers will silently ask.
+
+## Section X: Conclusion
+
+This is good. The tone is right. Keep the disciplined ending.
+
+I would make the final sentence even sharper:
+
+* not “necessary and technically tractable,”
+* but “a practical mediation layer that prevents first-seen external artifacts from silently becoming protected-host execution.”
+
+That lands harder.
+
+---
+
+# Figure, table, and diagram feedback
+
+## Figure 1 on page 3: control-plane diagram
+
+This is the figure with the most conceptual importance and the least visual clarity. 
+
+### Problems
+
+* text is too small,
+* contrast is too low,
+* the boxes are too vague,
+* the arrow semantics are not clear,
+* there is no legend,
+* disk cache is discussed in text but not clearly represented,
+* policy storage / manifest / verdict store is missing,
+* promotion and revocation are not clear,
+* “Publish / Revocation” on the same line as intake flow is conceptually muddy.
+
+### How to improve it
+
+Make it a **real control-plane diagram**, not a symbolic block drawing.
+
+I would include:
+
+* Agent / IDE / CI
+* Immutable resolution
+* Policy store / manifest / verdict store
+* Approved cache (disk + memory)
+* Cold-lane sandbox
+* Operator / approval path
+* Provenance / attestations input
+* Revocation feed
+* Protected host boundary
+
+And use:
+
+* solid arrows for request/response,
+* dashed arrows for evidence / policy updates,
+* numbered steps for sequence.
+
+A better alternative would be to replace this with a **sequence diagram** that shows:
+
+1. request arrives,
+2. selector resolves,
+3. policy hit or miss,
+4. cold lane on miss,
+5. evidence recorded,
+6. verdict updated,
+7. subsequent request served fast.
+
+That would be more readable and more useful.
+
+## Figure 2 on page 4: screenshots
+
+This is the weakest visual in the paper. It looks like demo collateral, not analytical evidence. 
+
+### Problems
+
+* text inside both screenshots is too small to read,
+* the figure does not prove usability,
+* the caption claims an ergonomics argument but provides no metric,
+* it eats a lot of space that could be used for stronger technical content.
+
+### What to do
+
+My honest recommendation: **cut Figure 2 from the main paper**.
+
+If you want to preserve the usability point, replace it with:
+
+* a short sequence diagram of developer workflow,
+* or a compact table of operator actions,
+* or a one-line statement that the demo UI exists, with screenshots moved to supplemental material.
+
+If you keep it, crop aggressively and add callouts:
+
+* “blocked first-seen request”
+* “policy verdict”
+* “evidence record”
+* “approved retry path”
+
+Right now it is mostly decorative.
+
+## Table II on page 4
+
+The table is fine, but it duplicates Figure 3. One of them should go.
+
+If the dataset remains tiny, keep the table and cut the chart.
+
+If the dataset becomes stronger, keep the chart and expand the table into percentiles / sample counts / conditions.
+
+Also fix:
+
+* add units to headers: Web (ms), Cache (ms), Hot (ms)
+* add N explicitly in the caption or a footnote
+* maybe add Cache speedup as well, not only Hot speedup
+
+## Figure 3 on page 5: speedup bar chart
+
+This figure currently gives a lot of space to a weak dataset.
+
+### Problems
+
+* same data as Table II,
+* N=1 makes the chart feel fragile,
+* cache and hot-cache bars are compressed near zero compared to web,
+* colors may not print well,
+* the footnote text inside the figure is tiny.
+
+### Better options
+
+Use one of these instead:
+
+* grouped boxplots with repeated runs,
+* CDFs,
+* log-scale latency chart,
+* normalized speedup chart,
+* or a chart showing cold miss → approved cache hit → hot-cache hit over repeated requests.
+
+That would make the “safe path is the fast path” claim feel much more substantial.
+
+---
+
+# What the paper still needs to withstand pushback
+
+## From the security community
+
+They will ask:
+
+* What is implemented today versus proposed?
+* What ingress paths are actually enforced?
+* What are the bypass conditions?
+* What is the trust bootstrap for ZitPit itself?
+* What happens when provenance is missing?
+* How is approval fatigue prevented?
+* How do revocation, expiry, and anti-rollback work?
+* What does “first-seen” mean operationally?
+* Where is the adversarial evaluation?
+
+You should answer those in the paper, not just in the repo.
+
+## From the AI / developer tools community
+
+They will ask:
+
+* Does this slow developers down?
+* Does it work with real AI IDEs and agents, not just shell demos?
+* Does it handle repo-open configuration and MCP/devcontainer workflows?
+* Is this another security gate people will disable?
+* Can teams deploy it incrementally?
+* Is monitoring actually better, or just noisier?
+
+The paper should speak to that by being more explicit about:
+
+* ergonomics,
+* auditability,
+* supported workflows,
+* local dev vs CI vs org deployment modes.
+
+---
+
+# The paper should speak more directly to “vibe coding”
+
+Right now the paper is close, but it does not fully seize the cultural moment.
+
+I would add one short paragraph in the intro that says, in effect:
+
+> What popular discourse calls “vibe coding” is, from a security perspective, delegated software acquisition and execution under weak review discipline. In modern AI IDEs, the same prompt can trigger package search, repository clone, workspace configuration, tool installation, and script execution before an operator has identified the trust boundary.
+
+That would connect the paper to the actual mess people are living through while still sounding serious.
+
+I would also add a figure that shows **trust-boundary collapse in agentic development**:
+
+* Prompt
+* Search
+* Resolve
+* Download
+* Install
+* Workspace open
+* Script/config execution
+* Secret exposure / exfil opportunity
+
+Then draw ZitPit control points underneath it.
+
+That would be the best figure in the paper if done well.
+
+---
+
+# The most valuable new figures to add
+
+If I were redesigning the paper, I would use these visuals:
+
+## 1. Threat-boundary / kill-chain figure
+
+A horizontal timeline showing how a modern AI IDE or coding agent moves from prompt to execution, and where ZitPit intercepts.
+
+This directly captures the “wild west AI IDE” problem.
+
+## 2. End-to-end sequence diagram
+
+Unknown artifact request:
+request → immutable resolution → policy miss → cold lane → evidence → verdict → later approved cache hit.
+
+This would replace or outperform Figure 1.
+
+## 3. Coverage matrix
+
+Rows:
+
+* Git clone
+* npm package
+* PyPI sdist/wheel
+* Cargo crate / build.rs
+* Go module
+* GitHub Action
+* raw HTTP installer
+* `.mcp.json`
+* `.claude/`
+* devcontainer
+* startup hook
+
+Columns:
+
+* immutable resolution
+* first-seen quarantine
+* build isolation
+* host execution gating
+* evidence capture
+* revocation support
+* current implementation status
+
+This would make the system feel real.
+
+## 4. Security outcome table
+
+Attack class, baseline behavior, ZitPit verdict, protected-host exposure prevented?, current support status.
+
+This is probably more important than the current screenshot figure.
+
+## 5. Better performance figure
+
+Only after you have repeated runs and stronger methodology.
+
+---
+
+# What to cut or compress
+
+To make the paper next-level without making it much longer:
+
+Cut or compress:
+
+* Figure 2 screenshots
+* either Table II or Figure 3
+* most of the roadmap section
+* the command listing
+
+Use that reclaimed space for:
+
+* claim-boundary table
+* formal threat model figure
+* attack coverage / replay table
+* implemented-vs-roadmap status matrix
+
+That trade will improve the paper a lot.
+
+---
+
+# Quick wins for the next draft
+
+Here is the highest-value revision order:
+
+1. **Retitle the subtitle** to “Turning First-Seen Artifacts into Policy Events.”
+2. **Add a formal claim-boundary table** for intake vs release.
+3. **Replace Figure 2** with an analytical figure.
+4. **Stop duplicating the same benchmark** as both table and chart unless the evaluation gets much bigger.
+5. **Clarify implemented vs prototype vs roadmap** in one explicit status table.
+6. **Formalize the threat model** with assets, adversaries, assumptions, and non-goals.
+7. **Define “first-seen,” “approved,” and policy scope** operationally.
+8. **Use one paragraph to directly name the vibe-coding / AI-IDE trust-collapse problem.**
+9. **Tone down a few rhetorical phrases** and keep the paper in calm, technical language.
+10. **Expand related work** so the novelty is unmistakable.
+
+---
+
+# My honest bottom line
+
+This is already a **promising, serious draft**. The idea is strong enough. The paper is not failing because the concept is weak; it is failing only where the presentation and evidence do not yet fully match the ambition.
+
+The strongest version of this paper is one that says:
+
+* here is the exact problem created by agentic development,
+* here is the claim boundary,
+* here is the mediation architecture,
+* here is the policy model,
+* here is what is implemented today,
+* here is what it measurably does,
+* here is what it does **not** yet prove.
+
+If you do that, the paper will feel much harder to dismiss from either the AI side or the security side.
+
+The next highest-value step is a revised outline plus a new figure plan: one threat/kill-chain figure, one end-to-end sequence diagram, one coverage matrix, and a stronger evaluation section built around security outcomes rather than just a five-repo latency demo.
+

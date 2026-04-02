@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="96" viewBox="0 0 1200 96" role="img" aria-labelledby="title">
+  <title id="title">Roadmap and community section accent</title>
+  <defs>
+    <linearGradient id="roadmapAccent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#fde047" />
+    </linearGradient>
+    <filter id="roadmapGlow" x="-20%" y="-80%" width="140%" height="240%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="24" y="18" width="332" height="52" rx="26" fill="#121a24" />
+  <rect x="40" y="36" width="52" height="8" rx="4" fill="url(#roadmapAccent)" filter="url(#roadmapGlow)" />
+  <text x="112" y="51" fill="#f3f7fb" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="22" font-weight="700" letter-spacing="1.5">ROADMAP AND COMMUNITY</text>
+</svg>

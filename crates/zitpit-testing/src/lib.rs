@@ -485,7 +485,8 @@ mod tests {
                 .build()
                 .expect("proxy client"),
         };
-        let proxy_handle = tokio::spawn(zitpit_gateway::run_proxy_listener(proxy_addr, proxy_state));
+        let proxy_handle =
+            tokio::spawn(zitpit_gateway::run_proxy_listener(proxy_addr, proxy_state));
         wait_tcp(proxy_addr).await;
 
         let client = reqwest::Client::builder()
@@ -588,7 +589,8 @@ mod tests {
                 .build()
                 .expect("proxy client"),
         };
-        let proxy_handle = tokio::spawn(zitpit_gateway::run_proxy_listener(proxy_addr, proxy_state));
+        let proxy_handle =
+            tokio::spawn(zitpit_gateway::run_proxy_listener(proxy_addr, proxy_state));
         wait_tcp(proxy_addr).await;
 
         let client = reqwest::Client::builder()
@@ -768,7 +770,8 @@ mod tests {
                 .build()
                 .expect("proxy client"),
         };
-        let proxy_handle = tokio::spawn(zitpit_gateway::run_proxy_listener(proxy_addr, proxy_state));
+        let proxy_handle =
+            tokio::spawn(zitpit_gateway::run_proxy_listener(proxy_addr, proxy_state));
         wait_tcp(proxy_addr).await;
 
         let client = reqwest::Client::builder()
@@ -893,7 +896,8 @@ mod tests {
                 .build()
                 .expect("proxy client"),
         };
-        let proxy_handle = tokio::spawn(zitpit_gateway::run_proxy_listener(proxy_addr, proxy_state));
+        let proxy_handle =
+            tokio::spawn(zitpit_gateway::run_proxy_listener(proxy_addr, proxy_state));
         wait_tcp(proxy_addr).await;
 
         let client = reqwest::Client::builder()
@@ -1026,7 +1030,8 @@ mod tests {
                 .build()
                 .expect("proxy client"),
         };
-        let proxy_handle = tokio::spawn(zitpit_gateway::run_proxy_listener(proxy_addr, proxy_state));
+        let proxy_handle =
+            tokio::spawn(zitpit_gateway::run_proxy_listener(proxy_addr, proxy_state));
         wait_tcp(proxy_addr).await;
 
         let client = reqwest::Client::builder()

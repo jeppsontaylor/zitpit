@@ -1,0 +1,1067 @@
+This draft has a strong core. The core idea is timely because modern agent tooling already normalizes autonomous file reads, command execution, and web access, and Claude Code specifically treats project-scoped settings as a place for permissions, hooks, and MCP servers; its `CLAUDE.md` files are read at the start of each session; and hooks can automatically run shell commands, HTTP endpoints, prompts, and MCP tool hooks during the agent lifecycle. That means your paper is addressing a very real expansion of the software intake surface, not a hypothetical edge case. ([Claude API Docs][1])
+
+My blunt read: right now the document feels like three different documents braided together.
+
+It is partly a manifesto, partly a product/design spec, and partly a security whitepaper. That blend gives it energy, but it is also the main reason it would get pushback from seasoned reviewers. Security people will want a threat model, assumptions, guarantees, and evidence. AI/build-tooling people will want workflow realism, compatibility, and low-friction deployment. Open-source engineers will want implementation clarity and honest scope boundaries.
+
+So the highest-level recommendation is this:
+
+**Turn it into a paper that proves three things, in order.**
+
+1. **Mediation completeness:** how ZitPit actually becomes the mandatory path for first-seen code and agent project state.
+2. **Analysis coverage:** what kinds of malicious behavior the quarantine/detonation environment can and cannot detect.
+3. **Trust-plane integrity:** why the manifest, approvals, signatures, and cache do not themselves become the weak point.
+
+Right now those ideas are present, but they are mixed together too early and too rhetorically.
+
+---
+
+## My biggest constructive criticism
+
+### 1. The paper does not yet have a clear “scientific spine”
+
+The document has passion, but it does not yet read like something that can survive hard scrutiny from security researchers.
+
+A strong paper needs this sequence:
+
+* problem statement
+* threat model
+* system model
+* design goals
+* architecture
+* security analysis
+* evaluation
+* limitations
+
+Your current draft jumps from problem framing into architecture and setup before it has really established the adversary, the trust boundary, or the exact security claims.
+
+That makes the reader do too much work.
+
+**Fix:** add an Abstract, then a formal Threat Model and Security Goals section before architecture.
+
+A good test is this: after page 1, a skeptical reader should be able to answer all of these without guessing:
+
+* What exactly is the attacker allowed to control?
+* What does ZitPit mediate?
+* What is out of scope?
+* What does “Approved” mean?
+* What does “prevented” mean?
+* What is the difference between “not observed malicious” and “trusted”?
+
+Right now, those answers are implied, not stated.
+
+---
+
+### 2. The paper is too Git/package-centric for the agent era
+
+This is the most important technical content gap.
+
+Your draft is strongest on “agent fetches unknown code, proxy intercepts, lab detonates lifecycle hooks.” That is good, but the modern agentic attack surface is broader than package lifecycle scripts. Official Claude Code docs alone show that project-scoped settings can include hooks and MCP servers, `CLAUDE.md` is loaded at session start, and hooks can run automatically during the agent loop. So the paper needs to frame the attack surface as **repo content + agent project state + tool configuration + dependency resolution + CI dependencies**, not just package intake. ([Claude API Docs][2])
+
+**Fix:** explicitly add an “Agent-Native Attack Surface” subsection in the introduction. It should include:
+
+* repo-local instructions and memory files
+* project-scoped hooks
+* MCP server configuration
+* package manager hooks
+* CI workflow dependencies
+* raw artifact downloads
+* container pulls
+* model/tool plugins if relevant
+
+Without that, a serious reviewer will say: “This is a good package intake firewall, but not yet a complete agentic software-intake paper.”
+
+---
+
+### 3. The current tone is too absolute in places
+
+Phrases like “absolute choke point,” “end it forever,” “physically decouple,” “instantly flagged,” and “would have NEVER happened” are emotionally powerful, but they will invite immediate pushback.
+
+Security communities punish overclaiming.
+
+A stronger style is:
+
+* specific
+* conditional
+* falsifiable
+* explicit about assumptions
+
+So instead of:
+
+> “This would have never happened”
+
+say:
+
+> “Under a mandatory ZitPit deployment covering repo fetch, project-state detonation, and egress mediation, this attack path would have been interrupted before local execution.”
+
+That sounds less flashy, but it is much more credible.
+
+---
+
+### 4. Setup details are too early and too prominent
+
+The `cargo run -p xtask -- demo setup` material belongs in implementation notes or an appendix, not near the front of the paper.
+
+As a reader, when I hit CLI commands that early, the paper suddenly feels like internal developer docs instead of a serious architecture paper.
+
+**Fix:** in the main body, describe the bootstrap flow conceptually. Move concrete commands, sample configs, and setup walkthroughs to an appendix called “Reference Deployment” or “Developer Setup.”
+
+---
+
+### 5. Your FAQ is doing the work that a Limitations/Security Analysis section should do
+
+The FAQ format is friendly, but it weakens the paper.
+
+A FAQ sounds like a marketing whitepaper anticipating objections. A section called **Security Analysis, Limitations, and Residual Risk** sounds like engineering honesty.
+
+**Fix:** replace Section 6 with a formal section organized like this:
+
+* Assumptions
+* Bypass surfaces
+* Failure modes
+* Residual risks
+* Non-goals
+* Future hardening areas
+
+That change alone will make the paper feel much more mature.
+
+---
+
+### 6. The evaluation section is not rigorous enough yet
+
+Your synthetic exploit suites are a good start, but as written they sound like demo scenarios, not proof.
+
+A reviewer will ask:
+
+* What benign corpus did you run?
+* What false positive rate did you observe?
+* What ecosystems are covered?
+* What was the quarantine latency?
+* What percentage of artifacts were cache hits?
+* What did you compare against?
+* How does agent workflow compatibility change across IDEs?
+* How does ZitPit behave under load, concurrency, or repeated misses?
+
+**Fix:** rename Section 5 to **Evaluation** and split it into:
+
+* attack corpus
+* benign corpus
+* experimental setup
+* metrics
+* baselines
+* results
+* discussion
+
+Then report things like:
+
+* detection rate
+* false positives
+* median analysis time
+* cache hit latency
+* first-seen artifact latency
+* developer/CI overhead
+* bypass success rate
+* revocation propagation time
+
+Without this, the paper will read as conceptually strong but empirically thin.
+
+---
+
+## The strongest structural rewrite
+
+Here is the outline I would use.
+
+### Title
+
+Your current title sounds like an internal memo. “Independent Review Document” is especially awkward unless it truly is authored by an independent third party.
+
+Use something more like:
+
+**ZitPit: Mandatory Zero-Trust Intake Mediation for Agentic Software Development**
+*Subtitle: Defending repositories, dependencies, and CI workflows in the era of vibe coding*
+
+That keeps the emotional hook while sounding like a paper.
+
+---
+
+### Front matter
+
+Add:
+
+* version/date
+* authors
+* repo link
+* contact
+* draft status
+* one-sentence thesis
+
+---
+
+### Abstract
+
+You need a 150–200 word abstract. Right now the document has none.
+
+The abstract should answer:
+
+* what problem exists
+* why old defenses are insufficient
+* what ZitPit is
+* what the main technical contributions are
+* what evidence you provide
+* what is out of scope
+
+---
+
+### 1. Introduction
+
+This should do three jobs:
+
+1. Define the modern problem clearly.
+2. Introduce “vibe coding” in plain language.
+3. Transition to a formal term.
+
+I would keep “vibe coding,” but only once or twice, then formalize it:
+
+> We use “vibe coding” to refer to high-velocity, agent-mediated software development in which software intake, execution, and trust decisions are compressed into a single conversational workflow.
+
+That phrasing keeps the cultural resonance, but makes the paper feel serious.
+
+Then add a short “motivating incident chain” narrative:
+prompt → agent resolves dependency/tool/repo → first-seen code lands locally → project config or lifecycle code runs → secrets or environment are touched → exfil or persistence attempt occurs.
+
+That opening will make the paper feel grounded.
+
+---
+
+### 2. Threat Model and Security Goals
+
+This section is missing and is absolutely necessary.
+
+Define adversaries such as:
+
+* malicious repo author
+* typosquatted package publisher
+* dependency confusion attacker
+* compromised CI action maintainer
+* malicious MCP/tool/plugin provider
+* malicious repo-local configuration author
+* attacker relying on agent obedience or silent automation
+
+Define defender-controlled assets:
+
+* developer workstation
+* CI runner
+* ZitPit proxy
+* manifest store
+* cache
+* detonation lab
+* policy signer
+
+Define goals:
+
+* prevent first-seen code from executing without mediation
+* prevent direct access to host secrets during intake
+* make safe artifacts fast to consume
+* generate evidence for approval or denial
+* support retroactive revocation and audit
+
+Define non-goals:
+
+* defending against a malicious human intentionally overriding policy
+* host kernel compromise
+* hypervisor zero-days
+* all logic bombs or long-dormancy payloads
+* attacks that arrive fully out-of-band from the mediated path
+
+This section will save you from a lot of reviewer pain later.
+
+---
+
+### 3. Design Goals and Principles
+
+This is where your “safe path must be the fast path” idea belongs. It is excellent.
+
+I would explicitly name 4–6 principles, such as:
+
+* mandatory mediation for first-seen intake
+* immutable identity by digest
+* explicit trust state transitions
+* deception-assisted dynamic analysis
+* deny-by-default egress for quarantine
+* fast-path acceleration for known-good artifacts
+* revocability and auditability
+
+This becomes the conceptual backbone of the paper.
+
+---
+
+### 4. System Architecture
+
+Only now should you introduce components.
+
+Your current component descriptions are good, but they need to be framed more formally.
+
+For each service, provide:
+
+* responsibility
+* inputs
+* outputs
+* trust assumptions
+* privileged operations
+* failure consequences
+
+A simple table here would help a lot.
+
+Also, split the system into planes:
+
+* **data plane**: fetch, serve, cache
+* **control plane**: policy, approval, signatures, revocation
+* **analysis plane**: quarantine, detonation, telemetry
+* **observability plane**: logs, incident reports, audit trail
+
+That framing makes the design feel much more complete.
+
+---
+
+### 5. Intake Protocol and Artifact State Machine
+
+Your current “User Flow” wants to be this section.
+
+This is where you formalize states.
+
+Right now the states are too few. I would expand to something like:
+
+* Unknown
+* Quarantined
+* Analyzing
+* Approved
+* Denied
+* Revoked
+* Expired
+* Escalated / Needs Review
+
+Then define exact transition rules.
+
+For example:
+
+* Unknown → Quarantined on first-seen request
+* Quarantined → Approved only by signed policy after successful checks
+* Approved → Revoked on later IOC/provenance failure/policy change
+* Approved → Expired after TTL if using time-scoped trust
+
+This should be shown as a figure, not just prose.
+
+Also, this section should define what exactly is hashed and signed. That is currently underspecified.
+
+A reviewer will ask whether the “approved unit” is:
+
+* repo tree
+* commit
+* release tarball
+* built artifact
+* dependency closure
+* lockfile state
+* runtime image
+* CI action ref
+* package registry provenance tuple
+
+If you do not specify that cleanly, the trust model feels fuzzy.
+
+---
+
+### 6. Deception-Assisted Detonation Environment
+
+This is your current Mirage Lab section.
+
+The concept is very good. The section just needs more precision and less dramatic phrasing.
+
+I would rename it:
+
+**Deception-Assisted Detonation Environment (Mirage Lab)**
+
+Then break it into subparts:
+
+* environment provisioning
+* runtime profiles
+* decoy injection
+* sensor coverage
+* egress sinkholing
+* verdict generation
+* anti-evasion considerations
+
+You should also make it explicit that a clean run is not “proof of safety.” It is only one input into the trust decision.
+
+That sentence will make reviewers trust you more.
+
+Also add details on what is actually instrumented:
+
+* file touches
+* credential path access
+* syscalls
+* process tree
+* outbound DNS
+* outbound HTTP
+* socket creation
+* writes to persistence locations
+* reads of git config / ssh config / env files
+* attempts to contact local metadata endpoints
+* attempts to enumerate tool/plugin configuration
+
+That makes the lab feel like engineering, not theater.
+
+---
+
+### 7. Security Analysis and Bypass Surfaces
+
+This should replace the FAQ.
+
+Organize it around the questions expert reviewers will actually ask:
+
+* Can the agent bypass the proxy?
+* Can package managers bypass the intended resolution path?
+* Can raw HTTP/archives bypass Git mediation?
+* Can CI workflows bypass the trust plane?
+* Can the detonation environment be fingerprinted or evaded?
+* What if malicious behavior is dormant or delayed?
+* What if the cache is poisoned?
+* What if the manifest/signer is compromised?
+* What if ZitPit itself is compromised?
+
+For CI specifically, serious reviewers will expect you to say something about immutable action refs and short-lived credentials. GitHub’s own guidance says a full-length commit SHA is the only immutable release form for Actions, and GitHub also recommends OIDC to replace long-lived cloud credentials with short-lived, well-scoped tokens. If you want CI credibility, this needs to be in the paper, even if v1 coverage is limited. ([GitHub Docs][3])
+
+---
+
+### 8. Provenance, Signing, and Trust Promotion
+
+This section does not exist yet, but it should.
+
+This is one of the highest-leverage upgrades you can make.
+
+If the paper talks about code hashing and manifests, experienced security readers will immediately compare it against what package registries and supply-chain frameworks already support. Today that includes OIDC-based trusted publishing in npm and PyPI, npm provenance visibility, PyPI digital attestations bound to package digests and identities, Sigstore’s transparency-log-backed signing model, and SLSA’s provenance framework for verifying who built an artifact, from what inputs, and how. ZitPit will look much more credible if it explicitly positions itself as a consumer and enforcement layer for that metadata instead of a parallel trust universe. ([npm Docs][4])
+
+This section should explain:
+
+* what ZitPit signs itself
+* what upstream provenance it verifies
+* when provenance upgrades trust
+* when missing provenance forces deeper quarantine
+* how revocation works
+* how policy keys rotate
+* how the trust log is audited
+
+That will dramatically strengthen the paper.
+
+---
+
+### 9. Evaluation
+
+This is where you report results.
+
+Do not call your synthetic tests “proof.” Call them:
+
+* adversarial replay suites
+* synthetic exploit suites
+* benchmark attack corpus
+
+Then also add:
+
+* benign corpora from common ecosystems
+* real-world reproduced attack classes
+* compatibility tests across IDEs/agents
+* CI pipeline tests
+* performance benchmarks
+
+This is also where you prove your slogan:
+safe path is fast path.
+
+Show a chart with:
+
+* direct internet median fetch time
+* ZitPit cache hit median fetch time
+* first-seen quarantine time
+* post-approval time
+
+That chart will be one of your best selling points.
+
+---
+
+### 10. Limitations and Future Work
+
+Be candid here.
+
+Things to admit:
+
+* dynamic analysis can be evaded
+* dormant logic bombs may not trigger
+* coverage is only as strong as mediation completeness
+* approval remains a sensitive control point
+* enterprise-scale federation is future work if not built yet
+* platform coverage may initially be Linux-first
+* agent-native attack surfaces are evolving
+
+A strong limitations section makes the whole paper stronger.
+
+---
+
+## Section-by-section critique of your current draft
+
+## Title and opening metadata
+
+**What works:**
+The intended audience and purpose are clear.
+
+**What hurts:**
+“Independent Review Document” sounds externally validated even though the text reads authored by the project team. That wording can irritate reviewers.
+
+**Improve it by:**
+Use “Open Technical Review Draft” or simply “Technical Whitepaper Draft.”
+
+---
+
+## 1. Executive Summary & Paradigm Shift
+
+**What works:**
+This section has energy and identifies the real asymmetry: agents can ingest and execute faster than humans can review.
+
+**What hurts:**
+It is too rhetorical for a paper. “Physically decouple the agent from the public internet” is a memorable phrase, but it is imprecise. Also, the section jumps into conclusions before defining the threat model.
+
+**How to strengthen it:**
+
+* define the exact attack surface
+* define “agent-mediated software intake”
+* define what current tools fail to do
+* state 3–5 contributions
+* avoid brand-name list overload unless you are measuring them
+
+**Add this sentence early:**
+“ZitPit is a mandatory mediation layer for first-seen software intake in agentic development environments.”
+
+That is cleaner and more durable than a slogan alone.
+
+---
+
+## 2. Component Architecture & Technical Setup
+
+**What works:**
+The four services are easy to understand and feel composable.
+
+**What hurts:**
+The section mixes conceptual architecture with developer setup. That weakens both.
+
+**How to strengthen it:**
+
+* split “Architecture” from “Reference Deployment”
+* introduce trust zones visually
+* clarify which component owns which keys
+* clarify whether the proxy terminates or relays SSH trust
+* define cache poisoning defenses
+* define what is immutable and what is mutable
+
+Also, if you want serious credibility across ecosystems, acknowledge that package resolution surfaces are broader than a single Git path. For example, pip can resolve from `index-url`, `extra-index-url`, `find-links`, and local filesystem, with no priority among them. That means any paper claiming broad supply-chain coverage needs an ingress-surface section, not just Git interception. ([pip][5])
+
+---
+
+## 3. The User Flow (Intake Mechanics)
+
+**What works:**
+The state-machine idea is excellent. The “safe path must be faster” philosophy is strong.
+
+**What hurts:**
+The section is underspecified where reviewers will care most:
+
+* mutable refs
+* tags
+* submodules
+* release archives
+* lockfiles
+* exact unit of approval
+* revocation
+* retry semantics
+
+The “Server Busy. Wait and Retry.” idea is interesting, but it is also risky. A reviewer will ask whether different agents loop, hang, give up, or route around the failure.
+
+**How to strengthen it:**
+
+* formalize protocol behavior
+* add deterministic status codes or a retriable queue state
+* document agent behavior in evaluation
+* define floating-ref handling more rigorously
+* add a revocation flow
+
+This section needs both a state diagram and a sequence diagram.
+
+---
+
+## 4. The Mirage Lab: Deep Deception Mechanics
+
+**What works:**
+This is the most distinctive part of the design. It is memorable and potentially very powerful.
+
+**What hurts:**
+The section sounds slightly theatrical. “Bread crumbs designed to be irresistible” is vivid, but a reviewer wants instrumentation detail more than colorful language.
+
+**How to strengthen it:**
+
+* explicitly name the sensors
+* define the runtime profiles
+* describe verdict scoring
+* discuss anti-evasion
+* clarify how long an analysis run lasts
+* define what is blocked vs suspicious vs escalated
+* explain how you keep decoys safe and non-abusable
+
+Also, the section needs to cover agent-native configuration execution, not just lifecycle scripts. Given official Claude Code support for project-scoped hooks, MCP servers, and startup-loaded memory files, reviewers will expect a detonation story for those surfaces too. ([Claude API Docs][2])
+
+---
+
+## 5. Exploitation & Battle-Test Verification
+
+**What works:**
+The attack suites are concrete and easy to picture.
+
+**What hurts:**
+The title sounds promotional, and the examples are synthetic without methodology.
+
+**How to strengthen it:**
+
+* rename to “Evaluation”
+* add a benign corpus
+* add methodology
+* add baselines
+* add measurements
+* separate “coverage demonstration” from “security proof”
+
+Also: include at least one table mapping attack class → trigger surface → observed signal → verdict → residual risk.
+
+That table will make the section feel much more serious.
+
+---
+
+## 6. Proactive Gaps & FAQ
+
+**What works:**
+You are anticipating objections, which is good.
+
+**What hurts:**
+The format makes it feel defensive instead of rigorous.
+
+**How to strengthen it:**
+Turn each FAQ item into a subsection inside “Security Analysis and Limitations.”
+
+Examples:
+
+* Bypass of Git mediation
+* Integrity of ZitPit itself
+* Sandbox breakout risk
+* Workflow disruption
+* Multi-team policy scaling
+
+For ZitPit’s own trust story, upgrade beyond a shell script. Mature reviewers will expect reproducible builds, signature verification, key rotation, and ideally transparency-log-friendly signing models. Sigstore and SLSA give you a language for that. ([Sigstore][6])
+
+---
+
+## What figures you absolutely need
+
+Right now, the paper wants far more visual structure than it has. If you want this to feel next-level, I would add at least 7 figures and 3 tables.
+
+### Figure 1: The problem diagram
+
+**Purpose:** explain the “vibe coding” risk in one glance.
+
+**Show:**
+user prompt → agent loop → repo/package/tool resolution → first-seen code/config lands locally → execution surfaces → host secrets / CI secrets / network egress.
+
+**Overlay:** where ZitPit intercepts.
+
+**Why it matters:**
+This makes the modern problem legible to both AI and security audiences.
+
+---
+
+### Figure 2: Trust boundaries and system architecture
+
+**Purpose:** establish the architecture cleanly.
+
+**Show:**
+developer machine, agent process, local proxy, cache, manifest, lab, sinkhole, internet, CI runner, approval signer.
+
+Use dashed boxes for trust zones and label every arrow with protocol and data type.
+
+**Must include:**
+where cryptographic checks happen and where egress is blocked.
+
+---
+
+### Figure 3: Artifact state machine
+
+**Purpose:** formalize the model.
+
+**Show states:**
+Unknown → Quarantined → Analyzing → Approved / Denied / Escalated → Revoked / Expired.
+
+**Annotate transitions with events:**
+first-seen, signature verified, policy approved, IOC landed, TTL expired, provenance mismatch.
+
+This figure is critical. Without it, your trust model stays fuzzy.
+
+---
+
+### Figure 4: Sequence diagram for a cache hit
+
+**Purpose:** prove the fast path.
+
+Show:
+agent request → proxy lookup → manifest check → hash verification → local cache serve.
+
+Annotate expected latency.
+
+---
+
+### Figure 5: Sequence diagram for first-seen intake
+
+**Purpose:** show the slow path and quarantine path.
+
+Show:
+agent request → proxy deny/retry state → fetch by ZitPit → hash/canonicalization → lab detonation → verdict → signed state update.
+
+This is where you can show “safe path fast, unknown path quarantined.”
+
+---
+
+### Figure 6: Mirage Lab internals
+
+**Purpose:** make detonation real and technical.
+
+**Show:**
+microVM, decoy files, fake endpoints, egress sinkhole, syscall sensors, file-access sensors, DNS logger, verdict engine, policy emitter.
+
+This figure should look like engineering, not art.
+
+---
+
+### Figure 7: Coverage matrix
+
+**Purpose:** show breadth honestly.
+
+Use a table or matrix:
+rows = attack classes
+columns = ingress surfaces / detection mechanisms / residual risks
+
+Examples of rows:
+
+* malicious package lifecycle
+* repo-local hook
+* malicious MCP config
+* dependency confusion
+* malicious CI action
+* delayed beacon
+* secret scraping
+* local persistence attempt
+
+This is one of the strongest credibility-building visuals you can include.
+
+---
+
+### Figure 8: Performance and compatibility results
+
+**Purpose:** answer the “this will slow everyone down” objection.
+
+Include:
+
+* cache hit latency
+* first-seen latency
+* approval latency
+* CI overhead
+* false positive counts
+* compatibility across workflows or IDEs
+
+This is the figure AI/build audiences will care about most.
+
+---
+
+## Figure style guidance
+
+Make the figures look like a systems paper, not a startup deck.
+
+Use:
+
+* consistent iconography
+* protocol labels on arrows
+* dashed trust boundaries
+* grayscale-friendly contrast
+* step numbers on sequence diagrams
+* a shared legend across all figures
+
+Avoid:
+
+* neon gradients
+* too many logos
+* giant decorative shields/locks
+* paragraphs inside diagrams
+* colors as the only way to distinguish state
+
+Every figure should survive black-and-white printing.
+
+---
+
+## Tables you should add
+
+### Table 1: Threat model and assumptions
+
+Columns:
+
+* threat
+* attacker capability
+* in scope?
+* control point
+* residual risk
+
+### Table 2: Component responsibilities
+
+Columns:
+
+* component
+* role
+* trusted inputs
+* outputs
+* privileged operations
+* failure impact
+
+### Table 3: Claims-to-evidence matrix
+
+Columns:
+
+* claim
+* evidence
+* section
+* limitations
+
+This last table is especially powerful.
+
+It tells reviewers:
+“We know exactly what we are claiming, and exactly what evidence supports each claim.”
+
+---
+
+## Content changes that will make the paper feel much stronger
+
+### A. Add a “Why existing controls break under agent speed” subsection
+
+This should explicitly argue that the old model assumed:
+
+* fetch and execute are separate
+* a human sees the dependency choice
+* project configuration is passive
+* CI dependencies are reviewed manually
+
+That is no longer true in agentic environments.
+
+Because agent tooling already supports autonomous command execution and web interaction, and project-level configuration can be shared across collaborators, the paper should explain that “software intake” now includes agent-readable and agent-executable project state, not just libraries. ([Claude API Docs][1])
+
+---
+
+### B. Add a “native ecosystem controls ZitPit can consume” subsection
+
+This is a huge opportunity.
+
+Reviewers will trust you more if ZitPit does not pretend to replace the ecosystem, but instead composes with it.
+
+Examples worth discussing:
+
+* GitHub Actions SHA pinning and org policies
+* GitHub OIDC for short-lived cloud credentials
+* npm trusted publishing and provenance
+* PyPI Trusted Publishing and attestations
+* Sigstore verification
+* SLSA provenance expectations
+
+GitHub explicitly recommends full-length SHA pinning for immutable Actions refs and OIDC for short-lived cloud access; npm and PyPI both support OIDC-based trusted publishing; npm shows provenance details to consumers; PyPI supports digital attestations tied to digests and identities; Sigstore and SLSA provide a mature vocabulary for signing, transparency, and provenance. ZitPit should present itself as an enforcement broker that consumes this metadata when available and compensates when it is absent. ([GitHub Docs][3])
+
+---
+
+### C. Add a “What ZitPit does not solve” section
+
+This is essential.
+
+Examples:
+
+* malicious code intentionally approved by a human
+* dormant behavior not triggered in lab
+* attacks delivered outside mediated paths
+* host kernel/hypervisor zero-days
+* compromised signer or policy authority
+* downstream misuse of already-approved code
+
+This section makes the paper sound real.
+
+---
+
+### D. Add a “retroactive revocation” section
+
+This is one of the strongest enterprise features you have, but it is barely visible in the draft.
+
+You should emphasize:
+
+* new IOC arrives
+* artifact hash or provenance tuple is marked revoked
+* all cached copies are invalidated
+* affected builds/runners/devs are identified
+* trust state changes propagate
+
+That moves ZitPit from “filter” to “incident response multiplier.”
+
+---
+
+## Formatting and layout feedback
+
+### What to change
+
+* Shorten paragraphs. Several are too dense.
+* Use more subsection headers.
+* Put CLI and config blocks in appendices.
+* Use callout boxes sparingly for:
+
+  * Security Goal
+  * Assumption
+  * Limitation
+  * Claim
+* Standardize capitalization and hyphenation:
+
+  * zero-trust
+  * supply-chain
+  * agent-mediated
+  * memory-mapped
+  * one-to-one
+  * microVM
+* Fix spelling issues like “quaratine.”
+
+### What to reduce
+
+* rhetorical emphasis
+* branded/internal names before definition
+* repeated “why this matters” prose
+* long inline parentheticals
+
+### What to add
+
+* abstract
+* glossary
+* references
+* appendices
+* numbered figures/tables with captions
+* section cross-references
+
+---
+
+## Specific language changes I would make
+
+### Keep
+
+* “safe path must be the fast path”
+* “zero-surprise, zero-trust”
+* “deception-assisted analysis” or similar
+* “agent-speed software intake”
+
+### Tone down or replace
+
+* “end it forever”
+* “absolute choke point”
+* “exploit them”
+* “irresistible bread crumbs”
+* “instantly flagged”
+* “would have NEVER happened”
+
+Use:
+
+* mediated
+* quarantined
+* observed
+* escalated
+* denied
+* signed
+* revoked
+* out of scope
+* residual risk
+
+That vocabulary sounds more trustworthy.
+
+---
+
+## The toughest objections you should preempt in the paper
+
+### From security reviewers
+
+They will ask:
+
+* Is mediation truly mandatory?
+* What bypasses remain?
+* What is the exact approval object?
+* Can the lab be evaded?
+* What is the false positive rate?
+* How is the trust plane secured?
+* How does provenance fit in?
+* How do you handle revocation and mutable refs?
+
+### From AI/workflow reviewers
+
+They will ask:
+
+* Does this break agent workflows?
+* How often does it block benign work?
+* How fast is the cache?
+* Does it support common IDEs and CI systems?
+* Does it cover project hooks, MCP, and repo instructions?
+* Is it transparent to developers?
+* What happens when an agent retries or routes around?
+
+Your paper should answer those directly, not implicitly.
+
+---
+
+## If I were editing this for maximum impact, these would be my first 10 changes
+
+1. Add an Abstract.
+2. Replace the FAQ with a formal Threat Model + Limitations section.
+3. Move setup commands/config to appendices.
+4. Add an “Agent-Native Attack Surface” subsection.
+5. Add a full artifact state machine figure.
+6. Add a trust-boundary architecture figure.
+7. Add a provenance/signing section tied to existing ecosystem standards. ([npm Docs][4])
+8. Convert exploit demos into a real Evaluation section.
+9. Rewrite claims to be conditional and falsifiable.
+10. Add one case-study walkthrough mapping a public attack chain to ZitPit controls.
+
+---
+
+## My overall verdict
+
+This is already a compelling concept paper, but not yet a hardened paper.
+
+Right now it has **strong instincts, strong architecture energy, and strong product vision**. What it still needs is **discipline**:
+
+* tighter scope
+* more formal threat modeling
+* less hype
+* more explicit assumptions
+* better visual structure
+* stronger evaluation design
+* better treatment of agent-native configuration and provenance
+
+If you do that, this can land very well with both communities.
+
+The single most important upgrade is this:
+
+**Reframe the paper from “proxying Git and detonating unknown code” to “mandatory mediation of first-seen software and agent project state across local development and CI.”**
+
+That is the version that feels built for the mess we are actually in.
+
+The most useful next step would be to turn this into a rewritten outline with suggested figure captions and a replacement abstract.
+
+[1]: https://docs.anthropic.com/en/docs/claude-code/sdk "Agent SDK overview - Claude API Docs"
+[2]: https://docs.anthropic.com/en/docs/claude-code/settings "Claude Code settings - Claude Code Docs"
+[3]: https://docs.github.com/en/actions/reference/security/secure-use "Secure use reference - GitHub Docs"
+[4]: https://docs.npmjs.com/trusted-publishers/ "Trusted publishing for npm packages | npm Docs"
+[5]: https://pip.pypa.io/en/stable/_sources/cli/pip_install.rst.txt "pip.pypa.io"
+[6]: https://docs.sigstore.dev/about/overview/ "Overview - Sigstore"
+

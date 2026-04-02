@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" role="img" aria-labelledby="title desc">
+  <title id="title">Simple Reality: Unmediated vs. Mediated Intake</title>
+  <desc id="desc">A minimal line diagram comparing direct unsafe intake with ZitPit-mediated intake that forces requests through policy check and quarantine before the protected host.</desc>
+
+  <defs>
+    <style>
+      .bg { fill: #ffffff; }
+      .leftPanel { fill: #fcf4f4; stroke: #d4dbe3; stroke-width: 2; }
+      .rightPanel { fill: #f4f9fc; stroke: #d4dbe3; stroke-width: 2; }
+      .title { font: 700 20px/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif; fill: #1d2733; }
+      .panelTitle { font: 700 17px/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif; fill: #1d2733; }
+      .boxText { font: 700 12px/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif; fill: #1d2733; }
+      .small { font: 400 10px/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif; fill: #5c6a79; }
+      .leftBox { fill: #ffffff; stroke: #bc4b51; stroke-width: 2.2; }
+      .rightBox { fill: #ffffff; stroke: #3a7ca5; stroke-width: 2.2; }
+      .holdBox { fill: #fbf3df; stroke: #d49b32; stroke-width: 2.2; }
+      .leftLabel { font: 700 13px/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif; fill: #bc4b51; }
+      .rightLabel { font: 700 13px/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif; fill: #3a7ca5; }
+      .leftArrow { stroke: #bc4b51; stroke-width: 4; fill: none; marker-end: url(#arrowLeft); }
+      .rightArrow { stroke: #3a7ca5; stroke-width: 4; fill: none; marker-end: url(#arrowRight); }
+    </style>
+
+    <marker id="arrowLeft" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#bc4b51" />
+    </marker>
+    <marker id="arrowRight" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3a7ca5" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1200" height="470" />
+  <text class="title" x="600" y="42" text-anchor="middle">Simple Reality: Unmediated vs. Mediated Intake</text>
+
+  <rect class="leftPanel" x="40" y="74" width="540" height="314" rx="16" ry="16" />
+  <rect class="rightPanel" x="620" y="74" width="540" height="314" rx="16" ry="16" />
+
+  <text class="panelTitle" x="74" y="118">Unmediated (Direct Risk)</text>
+  <text class="panelTitle" x="654" y="118">Mediated (ZitPit Safety)</text>
+
+  <rect class="leftBox" x="72" y="206" width="118" height="56" rx="12" ry="12" />
+  <rect class="leftBox" x="72" y="286" width="118" height="56" rx="12" ry="12" />
+  <rect class="leftBox" x="248" y="246" width="150" height="64" rx="12" ry="12" />
+  <rect class="leftBox" x="452" y="246" width="94" height="64" rx="12" ry="12" />
+
+  <text class="boxText" x="131" y="230" text-anchor="middle">Human</text>
+  <text class="boxText" x="131" y="248" text-anchor="middle">request</text>
+  <text class="boxText" x="131" y="310" text-anchor="middle">Agent</text>
+  <text class="boxText" x="131" y="328" text-anchor="middle">request</text>
+  <text class="boxText" x="323" y="271" text-anchor="middle">Download /</text>
+  <text class="boxText" x="323" y="289" text-anchor="middle">open code</text>
+  <text class="boxText" x="499" y="271" text-anchor="middle">Protected</text>
+  <text class="boxText" x="499" y="289" text-anchor="middle">host</text>
+
+  <path class="leftArrow" d="M 190 234 L 248 270" />
+  <path class="leftArrow" d="M 190 314 L 248 286" />
+  <path class="leftArrow" d="M 398 278 L 452 278" />
+  <text class="leftLabel" x="310" y="360" text-anchor="middle">Direct path to host</text>
+
+  <rect class="rightBox" x="652" y="206" width="118" height="56" rx="12" ry="12" />
+  <rect class="rightBox" x="652" y="286" width="118" height="56" rx="12" ry="12" />
+  <rect class="rightBox" x="820" y="246" width="126" height="64" rx="12" ry="12" />
+  <rect class="holdBox" x="964" y="238" width="156" height="76" rx="12" ry="12" />
+  <rect class="rightBox" x="1000" y="138" width="102" height="64" rx="12" ry="12" />
+
+  <text class="boxText" x="711" y="230" text-anchor="middle">Human</text>
+  <text class="boxText" x="711" y="248" text-anchor="middle">request</text>
+  <text class="boxText" x="711" y="310" text-anchor="middle">Agent</text>
+  <text class="boxText" x="711" y="328" text-anchor="middle">request</text>
+  <text class="boxText" x="883" y="272" text-anchor="middle">ZitPit gate</text>
+  <text class="small" x="883" y="292" text-anchor="middle">policy check</text>
+  <text class="boxText" x="1042" y="266" text-anchor="middle">Quarantine +</text>
+  <text class="boxText" x="1042" y="284" text-anchor="middle">honeypot</text>
+  <text class="small" x="1042" y="304" text-anchor="middle">hold / inspect</text>
+  <text class="boxText" x="1051" y="164" text-anchor="middle">Protected</text>
+  <text class="boxText" x="1051" y="182" text-anchor="middle">host</text>
+
+  <path class="rightArrow" d="M 770 234 L 820 270" />
+  <path class="rightArrow" d="M 770 314 L 820 286" />
+  <path class="rightArrow" d="M 946 278 L 964 278" />
+  <path class="rightArrow" d="M 1042 238 L 1051 202" />
+  <text class="rightLabel" x="894" y="374" text-anchor="middle">Held before host execution</text>
+</svg>
