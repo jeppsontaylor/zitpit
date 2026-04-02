@@ -118,9 +118,9 @@ impl DemoPaths {
         Self {
             ssh_dir: root.join("ssh"),
             env_file: root.join("demo.env"),
-            approved_source: "https://github.com/jeppsontaylor/approved.git".to_string(),
-            unknown_source: "https://github.com/jeppsontaylor/unknown.git".to_string(),
-            real_public_source: "https://github.com/axios/axios.git".to_string(),
+            approved_source: "http://github.com/jeppsontaylor/approved.git".to_string(),
+            unknown_source: "http://github.com/jeppsontaylor/unknown.git".to_string(),
+            real_public_source: "http://github.com/axios/axios.git".to_string(),
             root,
             runtime,
         }
@@ -823,7 +823,7 @@ async fn demo_smoke() -> Result<()> {
 
     let approved_first = run_ssh_timed(
         &ssh_base,
-        "git ls-remote https://github.com/jeppsontaylor/approved.git",
+        &format!("git ls-remote {}", paths.approved_source),
     )?;
     if !approved_first.output.status.success() {
         bail!(
@@ -844,7 +844,7 @@ async fn demo_smoke() -> Result<()> {
 
     let approved_cached = run_ssh_timed(
         &ssh_base,
-        "git ls-remote https://github.com/jeppsontaylor/approved.git",
+        &format!("git ls-remote {}", paths.approved_source),
     )?;
     if !approved_cached.output.status.success() {
         bail!(
@@ -866,7 +866,7 @@ async fn demo_smoke() -> Result<()> {
 
     let unknown_result = run_ssh_timed(
         &ssh_base,
-        "git ls-remote https://github.com/jeppsontaylor/unknown.git",
+        &format!("git ls-remote {}", paths.unknown_source),
     )?;
     if unknown_result.output.status.success() {
         bail!("unknown repo unexpectedly succeeded");
@@ -884,7 +884,7 @@ async fn demo_smoke() -> Result<()> {
 
     let real_public_result = run_ssh_timed(
         &ssh_base,
-        "git ls-remote https://github.com/axios/axios.git",
+        &format!("git ls-remote {}", paths.real_public_source),
     )?;
     if real_public_result.output.status.success() {
         bail!("real public repo unexpectedly succeeded without approval");
@@ -1048,19 +1048,19 @@ async fn demo_smoke() -> Result<()> {
                 &interactive_fail_closed,
             ),
             approved_first: CommandSummary::from_timed_command(
-                "git ls-remote https://github.com/jeppsontaylor/approved.git",
+                &format!("git ls-remote {}", paths.approved_source),
                 &approved_first,
             ),
             approved_cached: CommandSummary::from_timed_command(
-                "git ls-remote https://github.com/jeppsontaylor/approved.git",
+                &format!("git ls-remote {}", paths.approved_source),
                 &approved_cached,
             ),
             unknown_pending: CommandSummary::from_timed_command(
-                "git ls-remote https://github.com/jeppsontaylor/unknown.git",
+                &format!("git ls-remote {}", paths.unknown_source),
                 &unknown_result,
             ),
             real_public_pending: CommandSummary::from_timed_command(
-                "git ls-remote https://github.com/axios/axios.git",
+                &format!("git ls-remote {}", paths.real_public_source),
                 &real_public_result,
             ),
             bypass_attempt: CommandSummary::from_output(
@@ -1770,9 +1770,9 @@ mod tests {
             runtime: RuntimePaths::new(root.join("state")),
             ssh_dir: root.join("ssh"),
             env_file: root.join("demo.env"),
-            approved_source: "https://github.com/jeppsontaylor/approved.git".to_string(),
-            unknown_source: "https://github.com/jeppsontaylor/unknown.git".to_string(),
-            real_public_source: "https://github.com/axios/axios.git".to_string(),
+            approved_source: "http://github.com/jeppsontaylor/approved.git".to_string(),
+            unknown_source: "http://github.com/jeppsontaylor/unknown.git".to_string(),
+            real_public_source: "http://github.com/axios/axios.git".to_string(),
             root,
         }
     }
@@ -1829,7 +1829,7 @@ mod tests {
             decision_reason: "fail closed".to_string(),
             artifact_key: Some(ArtifactKey {
                 ecosystem: Ecosystem::Git,
-                source: "https://github.com/jeppsontaylor/unknown.git".to_string(),
+                source: "http://github.com/jeppsontaylor/unknown.git".to_string(),
                 requested_selector: "git-smart-http".to_string(),
                 selector_kind: SelectorKind::Floating,
             }),

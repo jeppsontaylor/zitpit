@@ -60,12 +60,12 @@ cat > /home/zitpit/.gitconfig <<EOF
 [http]
     proxy = ${ZITPIT_PROXY_URL}
 
-[url "https://github.com/"]
+[url "http://github.com/"]
     insteadOf = https://github.com/
     insteadOf = ssh://git@github.com/
     insteadOf = git@github.com:
 
-[url "https://gitlab.com/"]
+[url "http://gitlab.com/"]
     insteadOf = https://gitlab.com/
     insteadOf = ssh://git@gitlab.com/
     insteadOf = git@gitlab.com:
