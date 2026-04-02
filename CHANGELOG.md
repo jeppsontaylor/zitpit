@@ -21,3 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [x] Papers directory for academic collaboration.
 - [x] Verification bootstrap script (`scripts/verify_hash.sh`).
 - [x] Documentation folder with user and operator guides.
+
+### Changed
+- [x] Refreshed the README hero image with a transparent light-mode-friendly header asset.
+- [x] Tightened README, benchmark, and FAQ wording to match the paper's current MIT license, Git-first public evidence, and claim-boundary language.

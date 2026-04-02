@@ -2,7 +2,7 @@
 
 ZitPit is a **Mandatory Artifact Firewall and Governed Execution Plane** for AI-assisted development.
 
-In the age of autonomous agents, "first-seen" external code must transition from an *execution event* into a *policy event*. ZitPit prevents unapproved third-party artifacts from executing on protected developer machines or CI runners before digest resolution, policy evaluation, and quarantine.
+In the age of autonomous agents, "first-seen" external code must transition from an *execution event* into a *policy event*. In enforced environments, ZitPit prevents unknown third-party artifacts from executing on protected developer machines or CI runners before digest resolution, policy evaluation, and quarantine when required.
 
 Current public evidence shows why the safe path needs to be fast: the five-repo benchmark snapshot in [`docs/benchmarks/latest.md`](docs/benchmarks/latest.md) shows `web` medians of 433-1062 ms, approved cache medians of 32-44 ms, and hot-cache medians of 13-16 ms, with `N=5` samples per repo.
 
@@ -84,8 +84,8 @@ The public benchmark matrix is the claim boundary. See [`BENCHMARKS.md`](BENCHMA
 
 *   **Standards-Backed Trust Plane**: Designed to consume TUF, Sigstore, in-toto, and SLSA provenance signals rather than relying on bare file hashes.
 *   **Capability-Scoped Verdicts**: Approvals are granular (`FETCH_ONLY`, `BUILD_NO_NETWORK`, `RUN_DEV`, `BLOCKED`).
-*   **Anti-Evasion Evidentiary Engine**: The Mirage Lab runs unknown code across diverse personas to generate auditable behavior graphs and signed evidence packs.
-*   **Agent-Native Interception**: Governs `.claude/`, `.mcp.json`, devcontainers, and tool execution bounds as supply-chain surfaces.
+*   **Cold-Lane Evidence Engine**: The Mirage Lab is intended to generate auditable behavior graphs and evidence packs for unknown artifacts rather than acting as a trust oracle.
+*   **Agent-Surface Policy Model**: Repo-open surfaces such as `.claude/`, `.mcp.json`, and devcontainers are treated as supply-chain inputs in the architecture and benchmark plan.
 
 ---
 
@@ -159,4 +159,4 @@ We especially want help from the community with benchmark cases, battle packs, e
 
 ## 📄 License
 
-ZitPit is dual-licensed under **MIT** and **Apache 2.0**.
+ZitPit is licensed under **MIT**.

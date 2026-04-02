@@ -1,17 +1,17 @@
 # Frequently Asked Questions (FAQ)
 
 ## What's the goal of ZitPit?
-To stop the supply-chain nonsense and keep AI agents and developers safe. We provide a managed artifact firewall for intake, plus a cold-lane evidence engine and a fast local cache for approved artifacts.
+To keep first-seen external code from silently turning into host execution in agentic workflows. ZitPit is a mandatory artifact firewall for intake, plus a cold-lane evidence engine and a fast local cache for approved artifacts.
 
 ---
 
 ## Does ZitPit replace Artifactory or Nexus?
-No. ZitPit is a **Mandatory Artifact Firewall**. While it provides caching and repository management, its primary focus is on policy, quarantine, evidence, and approved-path acceleration. You can use ZitPit as a proxy in front of an existing artifact repository.
+No. ZitPit is a **Mandatory Artifact Firewall**. While it provides caching on the approved path, its primary focus is policy, quarantine, evidence, and approved-path acceleration. You can use ZitPit as a proxy in front of an existing artifact repository.
 
 ---
 
 ## How does ZitPit support "Vibe Coding"?
-AI agents move fast. If an agent requests a known-safe dependency, ZitPit serves it instantly from the local cache. If the dependency is unknown, ZitPit prevents the agent from blindly running it, but provides smart suggestions for approved alternatives.
+AI agents move fast. If an agent requests an approved immutable artifact, ZitPit can serve it quickly from local cache. If the artifact is first-seen or policy-sensitive, ZitPit is designed to stop it from blindly executing on the protected host before review.
 
 ---
 
@@ -21,7 +21,7 @@ No, but it creates a governed intake boundary. ZitPit is the only service with o
 ---
 
 ## Does this work on Windows and macOS?
-Yes! While the full SSH-proxy interception is currently strongest on Linux, the Git, npm, and HTTP proxies can be configured manually on any major platform.
+Partially. The current public implementation is strongest on Linux and on the Git smart-HTTP intake path. Some local proxy and demo flows can be configured manually on macOS and Windows, but broader ecosystem coverage remains partial or roadmap depending on the surface.
 
 ---
 
