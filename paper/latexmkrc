@@ -1,0 +1,4 @@
+$pdf_mode = 1;
+$bibtex = 'bibtex %O %B';
+$pdflatex = 'pdflatex -interaction=nonstopmode -file-line-error %O %S';
+$max_repeat = 5;

@@ -1,0 +1,546 @@
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 1200 760
+%% Initialization:
+/m {moveto} bind def
+/l {lineto} bind def
+/c {curveto} bind def
+
+
+/RE { %def
+  findfont begin
+  currentdict dup length dict begin
+ { %forall
+   1 index /FID ne { def } { pop pop } ifelse
+ } forall
+ /FontName exch def dup length 0 ne { %if
+   /Encoding Encoding 256 array copy def
+   0 exch { %forall
+     dup type /nametype eq { %ifelse
+       Encoding 2 index 2 index put
+       pop 1 add
+     }{ %else
+       exch pop
+     } ifelse
+   } forall
+ } if pop
+  currentdict dup end end
+  /FontName get exch definefont pop
+} bind def
+
+/WinAnsiEncoding [
+  39/quotesingle 96/grave 128/euro 130/quotesinglbase/florin/quotedblbase
+  /ellipsis/dagger/daggerdbl/circumflex/perthousand
+  /Scaron/guilsinglleft/OE 145/quoteleft/quoteright
+  /quotedblleft/quotedblright/bullet/endash/emdash
+  /tilde/trademark/scaron/guilsinglright/oe/dotlessi
+  159/Ydieresis 164/currency 166/brokenbar 168/dieresis/copyright
+  /ordfeminine 172/logicalnot 174/registered/macron/ring
+  177/plusminus/twosuperior/threesuperior/acute/mu
+  183/periodcentered/cedilla/onesuperior/ordmasculine
+  188/onequarter/onehalf/threequarters 192/Agrave/Aacute
+  /Acircumflex/Atilde/Adieresis/Aring/AE/Ccedilla
+  /Egrave/Eacute/Ecircumflex/Edieresis/Igrave/Iacute
+  /Icircumflex/Idieresis/Eth/Ntilde/Ograve/Oacute
+  /Ocircumflex/Otilde/Odieresis/multiply/Oslash
+  /Ugrave/Uacute/Ucircumflex/Udieresis/Yacute/Thorn
+  /germandbls/agrave/aacute/acircumflex/atilde/adieresis
+  /aring/ae/ccedilla/egrave/eacute/ecircumflex
+  /edieresis/igrave/iacute/icircumflex/idieresis
+  /eth/ntilde/ograve/oacute/ocircumflex/otilde
+  /odieresis/divide/oslash/ugrave/uacute/ucircumflex
+  /udieresis/yacute/thorn/ydieresis
+] def
+
+WinAnsiEncoding /Helvetica-Bold /Helvetica-Bold RE
+WinAnsiEncoding /Helvetica /Helvetica RE
+
+0 0 0 setrgbcolor
+2 setlinecap
+0 setlinejoin
+1 setlinewidth
+gsave
+[1 0 0 1 0 0] concat
+0 setlinecap
+[] 0 setdash
+gsave
+[1 0 0 1 0 0] concat
+gsave
+.984314 .980392 .968627 setrgbcolor
+[] 0 setdash
+0 0 m
+1200 0 l
+1200 760 l
+0 760 l
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 30 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+70 712 m (ZitPit speedup snapshot) show 
+grestore
+gsave
+(Helvetica) findfont 16 scalefont setfont
+.317647 .380392 .439216 setrgbcolor
+70 686 m (Five public Git repositories, one sample per mode, measured as direct upstream web vs approved disk cache vs in-memory hot cache) show 
+grestore
+gsave
+.698039 .227451 .282353 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 824 702 translate 4 -4 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 824 712 translate 4 -4 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 834 712 translate 4 -4 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 834 702 translate 4 -4 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 14 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+846 702 m (web) show 
+grestore
+gsave
+.168627 .423529 .690196 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 912 702 translate 4 -4 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 912 712 translate 4 -4 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 922 712 translate 4 -4 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 922 702 translate 4 -4 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 14 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+934 702 m (cache) show 
+grestore
+gsave
+.121569 .615686 .407843 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 1022 702 translate 4 -4 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 1022 712 translate 4 -4 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 1032 712 translate 4 -4 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 1032 702 translate 4 -4 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 14 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+1044 702 m (hot-cache) show 
+grestore
+gsave
+.317647 .380392 .439216 setrgbcolor
+2 setlinewidth
+[] 0 setdash
+100 200 m 100 580 l stroke
+grestore
+gsave
+.317647 .380392 .439216 setrgbcolor
+2 setlinewidth
+[] 0 setdash
+100 200 m 1110 200 l stroke
+grestore
+gsave
+.847059 .866667 .890196 setrgbcolor
+[] 0 setdash
+100 200 m 1110 200 l stroke
+grestore
+gsave
+(Helvetica) findfont 12 scalefont setfont
+.317647 .380392 .439216 setrgbcolor
+56 196 m (0) show 
+grestore
+gsave
+.847059 .866667 .890196 setrgbcolor
+[] 0 setdash
+100 284.4444 m 1110 284.4444 l stroke
+grestore
+gsave
+(Helvetica) findfont 12 scalefont setfont
+.317647 .380392 .439216 setrgbcolor
+56 280.4444 m (200) show 
+grestore
+gsave
+.847059 .866667 .890196 setrgbcolor
+[] 0 setdash
+100 368.8889 m 1110 368.8889 l stroke
+grestore
+gsave
+(Helvetica) findfont 12 scalefont setfont
+.317647 .380392 .439216 setrgbcolor
+56 364.8889 m (400) show 
+grestore
+gsave
+.847059 .866667 .890196 setrgbcolor
+[] 0 setdash
+100 453.3333 m 1110 453.3333 l stroke
+grestore
+gsave
+(Helvetica) findfont 12 scalefont setfont
+.317647 .380392 .439216 setrgbcolor
+56 449.3333 m (600) show 
+grestore
+gsave
+.847059 .866667 .890196 setrgbcolor
+[] 0 setdash
+100 537.7778 m 1110 537.7778 l stroke
+grestore
+gsave
+(Helvetica) findfont 12 scalefont setfont
+.317647 .380392 .439216 setrgbcolor
+56 533.7778 m (800) show 
+grestore
+gsave
+.847059 .866667 .890196 setrgbcolor
+[] 0 setdash
+100 580 m 1110 580 l stroke
+grestore
+gsave
+(Helvetica) findfont 12 scalefont setfont
+.317647 .380392 .439216 setrgbcolor
+56 576 m (900) show 
+grestore
+gsave
+(Helvetica) findfont 12 scalefont setfont
+.317647 .380392 .439216 setrgbcolor
+28 355 m (Latency \(ms\)) show 
+grestore
+gsave
+.698039 .227451 .282353 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 153 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 153 369.37777777777774 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 169 369.37777777777774 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 169 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+152 382.3778 m (413) show 
+grestore
+gsave
+.168627 .423529 .690196 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 187 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 187 209.35555555555555 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 203 209.35555555555555 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 203 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+186 222.3556 m (34) show 
+grestore
+gsave
+.121569 .615686 .407843 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 221 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 221 201.33333333333334 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 237 201.33333333333334 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 237 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+220 214.3333 m (15) show 
+grestore
+gsave
+(Helvetica-Bold) findfont 15 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+164 160 m (git) show 
+grestore
+gsave
+.698039 .227451 .282353 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 353 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 353 397.2444444444444 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 369 397.2444444444444 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 369 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+352 410.2444 m (479) show 
+grestore
+gsave
+.168627 .423529 .690196 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 387 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 387 207.66666666666666 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 403 207.66666666666666 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 403 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+386 220.6667 m (30) show 
+grestore
+gsave
+.121569 .615686 .407843 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 421 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 421 201.75555555555556 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 437 201.75555555555556 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 437 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+420 214.7556 m (16) show 
+grestore
+gsave
+(Helvetica-Bold) findfont 15 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+364 160 m (go) show 
+grestore
+gsave
+.698039 .227451 .282353 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 553 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 553 489.2888888888889 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 569 489.2888888888889 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 569 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+552 502.2889 m (697) show 
+grestore
+gsave
+.168627 .423529 .690196 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 587 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 587 208.0888888888889 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 603 208.0888888888889 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 603 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+586 221.0889 m (31) show 
+grestore
+gsave
+.121569 .615686 .407843 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 621 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 621 200.9111111111111 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 637 200.9111111111111 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 637 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+620 213.9111 m (14) show 
+grestore
+gsave
+(Helvetica-Bold) findfont 15 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+564 160 m (node) show 
+grestore
+gsave
+.698039 .227451 .282353 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 753 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 753 541.6444444444444 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 769 541.6444444444444 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 769 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+752 554.6444 m (821) show 
+grestore
+gsave
+.168627 .423529 .690196 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 787 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 787 208.0888888888889 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 803 208.0888888888889 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 803 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+786 221.0889 m (31) show 
+grestore
+gsave
+.121569 .615686 .407843 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 821 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 821 201.33333333333334 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 837 201.33333333333334 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 837 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+820 214.3333 m (15) show 
+grestore
+gsave
+(Helvetica-Bold) findfont 15 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+764 160 m (cpython) show 
+grestore
+gsave
+.698039 .227451 .282353 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 953 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 953 513.7777777777778 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 969 513.7777777777778 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 969 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+952 526.7778 m (755) show 
+grestore
+gsave
+.168627 .423529 .690196 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 987 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 987 208.93333333333334 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 1003 208.93333333333334 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 1003 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+986 221.9333 m (33) show 
+grestore
+gsave
+.121569 .615686 .407843 setrgbcolor
+[] 0 setdash
+newpath
+matrix currentmatrix 1021 205 translate 5 -5 scale 0 0 1 90 180 arc setmatrix
+matrix currentmatrix 1021 201.75555555555556 translate 5 -5 scale 0 0 1 180 270 arc setmatrix
+matrix currentmatrix 1037 201.75555555555556 translate 5 -5 scale 0 0 1 270 360 arc setmatrix
+matrix currentmatrix 1037 205 translate 5 -5 scale 0 0 1 0 90 arc setmatrix
+closepath
+gsave
+eofill
+grestore
+stroke
+grestore
+gsave
+(Helvetica-Bold) findfont 13 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+1020 214.7556 m (16) show 
+grestore
+gsave
+(Helvetica-Bold) findfont 15 scalefont setfont
+.07451 .133333 .219608 setrgbcolor
+964 160 m (terraform) show 
+grestore
+gsave
+(Helvetica) findfont 13 scalefont setfont
+.317647 .380392 .439216 setrgbcolor
+70 90 m (Current public demonstration run: 5 repos, N=1 sample per repo. Source: docs/benchmarks/latest.json.) show 
+grestore
+gsave
+(Helvetica) findfont 13 scalefont setfont
+.317647 .380392 .439216 setrgbcolor
+70 66 m (web = direct upstream git ls-remote; cache = approved disk cache; hot-cache = in-memory hot cache.) show 
+grestore
+grestore
+grestore
+showpage

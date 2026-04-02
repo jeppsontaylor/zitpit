@@ -4,12 +4,12 @@ As a ZitPit operator, you are responsible for maintaining the trust perimeter fo
 
 ## Architecture & Services
 
-ZitPit consists of several interconnected Rust microservices:
+ZitPit consists of a small set of Rust services that implement intake, policy, evidence, and observability:
 
-*   **`zitpit-gateway`**: The entry point. Handles SSH, Git, and HTTP requests. Implements the `Gateway` logic.
-*   **`zitpit-manifest`**: Manages signed manifests and artifact shards. This is your source of truth for "Approved" state.
-*   **`zitpit-lab`**: Orchestrates the Mirage Lab. Manages detonation jobs and keeps track of evidence.
-*   **`zitpit-watch`**: An observability service that provides an incident feed and logs of every intercepted request.
+*   **`zitpit-gateway`**: The intake entry point. Handles SSH, Git, and HTTP requests and forwards approved artifacts to cache or cold lane.
+*   **`zitpit-manifest`**: The policy and provenance ledger. It records capability-scoped verdicts, digest identity, and revocation state.
+*   **`zitpit-lab`**: The Mirage Lab coordinator. It runs cold-lane detonation jobs and collects evidence.
+*   **`zitpit-watch`**: Observability and incident feed. It surfaces policy decisions and high-risk request traces.
 
 ## Configuration
 
@@ -23,22 +23,22 @@ Services can be configured via environment variables or CLI flags (`zitpit-flags
 
 ### Policy Management
 
-ZitPit policies are defined in the `Trust Plane`. You can manage these through:
+ZitPit policies are defined in the trust plane. You can manage them through:
 1.  **TUI Console**: `cargo run -p zitpit-tui`
 2.  **API**: Direct interaction with the `zitpit-manifest` API.
 
 ## Handling Unknown Requests
 
 When a developer or agent requests an unapproved artifact, ZitPit will:
-1.  Return a `Pending` response.
+1.  Return a `Quarantine` or `Blocked` decision depending on policy.
 2.  Suggest a known-good alternative if one exists.
-3.  Queue a `Quarantine` job in the Lab.
+3.  Queue a cold-lane job in the Lab and emit evidence.
 
 Operators must then:
-1.  Review the Lab's `Evidence` report.
-2.  Determine the `Verdict` (Promote or Block).
-3.  Sign the new manifest entry to update the Trust Plane.
+1.  Review the Lab's evidence report.
+2.  Determine the verdict (`FETCH_ONLY`, `BUILD_NO_NETWORK`, `RUN_CI`, or `BLOCKED`).
+3.  Sign the new manifest entry to update the policy ledger.
 
 ## Monitoring
 
-Use **`zitpit-watch`** to monitor real-time requests. The incident feed will highlight any attempted bypasses or high-risk detonation results.
+Use **`zitpit-watch`** to monitor real-time requests. The incident feed will highlight attempted bypasses, stale fallback use, or high-risk detonation results.

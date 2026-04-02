@@ -2,6 +2,8 @@
 
 ZitPit is designed to be **platform-agnostic**, making it compatible with popular AI agents like Antigravity, Cursor, Claude, and Codex. Since these agents use standard protocols (Git, SSH, HTTP), ZitPit can intercept and protect their dependencies without requiring custom integration.
 
+Repo-open surfaces such as `.claude/`, `.mcp.json`, devcontainers, and task or hook files are part of the intake surface too, so treat them as policy-controlled artifacts rather than inert workspace metadata.
+
 ## General Setup
 
 To route your agent's traffic through ZitPit, you need to configure your local development environment.
@@ -49,7 +51,7 @@ Cursor inherits your local Git configuration. After setting `insteadOf` in your 
 
 ### Claude Desktop & MCP
 
-If you are using Claude with MCP (Model Context Protocol) servers that pull code, ensure the MCP environment variable `HTTPS_PROXY` points to your ZitPit proxy address (e.g., `http://127.0.0.1:43004`).
+If you are using Claude with MCP (Model Context Protocol) servers that pull code, ensure the MCP environment variable `HTTPS_PROXY` points to your ZitPit proxy address (e.g., `http://127.0.0.1:43004`). The allowed MCP server list should live in source control and be reviewed like any other artifact input.
 
 ---
 

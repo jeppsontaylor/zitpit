@@ -1,6 +1,8 @@
 # ZitPit Quickstart
 
-Welcome to the ZitPit defensive perimeter. This guide will help you get a local demo environment running quickly.
+Welcome to the ZitPit defensive perimeter. This guide will help you get the current MVP demo environment running quickly.
+
+The public benchmark matrix in [BENCHMARKS.md](../BENCHMARKS.md) defines the supported claim boundaries. This quickstart demonstrates the current Git intake path, not the full target V2 surface.
 
 ## Prerequisites
 
@@ -10,7 +12,7 @@ Welcome to the ZitPit defensive perimeter. This guide will help you get a local 
 
 ## Step 1: Verify the Repository
 
-Before running any code, verify that your local copy matches the published trust anchors:
+Before running any code, verify that your local copy matches the published bootstrap integrity check:
 
 ```bash
 sh scripts/verify_hash.sh
@@ -40,7 +42,7 @@ cargo run -p zitpit-tui
 
 ## Step 4: Test a Protected Clone
 
-From the protected `ssh zitpit` shell, try a Git operation through the proxy. ZitPit will intercept the request, check the manifest, and either allow it (if cached/approved) or stall it for quarantine.
+From the protected `ssh zitpit` shell, try a Git operation through the proxy. ZitPit will intercept the request, check policy, and either allow it from the local cache or route it to quarantine.
 
 ```bash
 git ls-remote https://github.com/jeppsontaylor/approved.git
@@ -50,4 +52,5 @@ git ls-remote https://github.com/jeppsontaylor/approved.git
 
 *   Read the [Operator Guide](operator-guide.md) for detailed configuration.
 *   Check the [Agent Setup](agent-setup.md) to integrate with tools like Antigravity or Cursor.
+*   Review [CLAIMS.md](../CLAIMS.md) and [BENCHMARKS.md](../BENCHMARKS.md) before making public claims.
 *   Understand our [Trust Model](trust-model.md).

@@ -1,8 +1,4 @@
-# ZitPit
-
-<p align="center">
-  <img src="assets/mascot.png" alt="ZitPit Lighthouse Crab Mascot" width="400" />
-</p>
+![ZitPit header](assets/zitpit_header.png)
 
 ZitPit is a **Mandatory Artifact Firewall and Governed Execution Plane** for AI-assisted development.
 
@@ -22,7 +18,9 @@ When AI coding agents (Antigravity, Cursor, Claude, Codex) operate at speed, an 
 
 ---
 
-## 🏗️ Architecture: The 4-Stage Control Plane
+<img src="assets/headers/architecture.svg" alt="Architecture accent" width="320" />
+
+## Architecture: The 4-Stage Control Plane
 
 ZitPit protects your supply chain across four absolute boundaries:
 
@@ -42,12 +40,14 @@ The current repo proves the Git intake path, the local cache, the hot cache, and
 
 ---
 
-## 📸 Proof Gallery
+<img src="assets/headers/proof-gallery.svg" alt="Proof Gallery accent" width="340" />
+
+## Proof Gallery
 
 ### Agent Setup
 
 <p align="center">
-  <img src="assets/cursor_zitt.png" alt="Cursor setup screenshot" width="380" />
+  <img src="assets/cursor_zitt.png" alt="Cursor setup screenshot" width="860" />
 </p>
 
 This screenshot shows the kind of protected workspace setup ZitPit is built to guard. The agent-facing bootstrap, shell config, and repo-open surface all matter because they determine whether first-seen code can reach execution on the host.
@@ -55,7 +55,7 @@ This screenshot shows the kind of protected workspace setup ZitPit is built to g
 ### Operator Console
 
 <p align="center">
-  <img src="assets/zitt_TUI.png" alt="ZitPit TUI screenshot" width="760" />
+  <img src="assets/zitt_TUI.png" alt="ZitPit TUI screenshot" width="860" />
 </p>
 
 The TUI is the operator's live view into the intake perimeter. It is where approved artifacts, pending quarantine jobs, and policy decisions become visible instead of hiding inside logs.
@@ -63,7 +63,7 @@ The TUI is the operator's live view into the intake perimeter. It is where appro
 ### Benchmark Snapshot
 
 <p align="center">
-  <img src="assets/figures/speedup.svg" alt="Current five-repo benchmark snapshot" width="760" />
+  <img src="assets/figures/speedup.svg" alt="Current five-repo speed-up snapshot" width="860" />
 </p>
 
 The benchmark chart shows the claim we are making publicly: approved cache hits and hot-cache hits are dramatically faster than direct upstream fetches, so the safe path is not the slow path.
@@ -71,7 +71,7 @@ The benchmark chart shows the claim we are making publicly: approved cache hits 
 ### Control Plane
 
 <p align="center">
-  <img src="assets/figures/network.svg" alt="ZitPit control-plane diagram" width="760" />
+  <img src="assets/figures/network.svg" alt="ZitPit control-plane diagram" width="860" />
 </p>
 
 The network diagram shows the control flow at a glance: agent and CI requests enter the gateway, approved artifacts take the hot path, first-seen artifacts fall into the cold lane, and publish or revocation signals flow back into policy.
@@ -89,7 +89,9 @@ The current public benchmark matrix is the claim boundary. See [`BENCHMARKS.md`]
 
 ---
 
-## 🏁 Quickstart
+<img src="assets/headers/quickstart.svg" alt="Quickstart accent" width="300" />
+
+## Quickstart
 
 > [!CAUTION]
 > ZitPit is actively migrating to the V2 architecture. The quickstart below demonstrates the current MVP Git intake path. Let [`BENCHMARKS.md`](BENCHMARKS.md) and [`CLAIMS.md`](CLAIMS.md) guide public claims and the V2 migration path.
@@ -137,7 +139,9 @@ cargo run -p xtask -- battle public-core
 
 ---
 
-## 🗺️ Roadmap & Community
+<img src="assets/headers/roadmap.svg" alt="Roadmap accent" width="420" />
+
+## Roadmap & Community
 
 ZitPit is built to be the **most open** and **collaborative** project in the security space. See our [ROADMAP.md](ROADMAP.md) for the V2 timeline, [BENCHMARKS.md](BENCHMARKS.md) for the claim boundaries, and [CLAIMS.md](CLAIMS.md) for the public wording we are standing behind.
 
