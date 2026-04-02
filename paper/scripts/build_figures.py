@@ -181,8 +181,8 @@ def opener_host_box(drawing, x, y, w, h, accent, fill, title, lines):
 
 
 def build_opener_comparison():
-    width = 1200
-    height = 470
+    width = 1160
+    height = 352
     drawing = Drawing(width, height)
     drawing.add(Rect(0, 0, width, height, fillColor=BG, strokeColor=BG))
 
@@ -221,51 +221,39 @@ def build_opener_comparison():
                 )
             )
 
-    left_x = 42
-    right_x = 620
-    panel_y = 74
-    panel_w = 538
-    panel_h = 314
-
-    drawing.add(
-        String(
-            width / 2,
-            434,
-            "Simple Reality: Unmediated vs. Mediated Intake",
-            fontName="Helvetica-Bold",
-            fontSize=20,
-            fillColor=INK,
-            textAnchor="middle",
-        )
-    )
+    left_x = 18
+    right_x = 600
+    panel_y = 28
+    panel_w = 542
+    panel_h = 294
 
     soft_panel(drawing, left_x, panel_y, panel_w, panel_h, HexColor("#fcf4f4"))
     soft_panel(drawing, right_x, panel_y, panel_w, panel_h, HexColor("#f4f9fc"))
 
-    add_text(drawing, left_x + 34, 344, "Unmediated (Direct Risk)", 17, INK, "Helvetica-Bold")
-    add_text(drawing, right_x + 34, 344, "Mediated (ZitPit Safety)", 17, INK, "Helvetica-Bold")
+    add_text(drawing, left_x + 34, 278, "Unmediated (Direct Risk)", 17, INK, "Helvetica-Bold")
+    add_text(drawing, right_x + 34, 278, "Mediated (ZitPit Safety)", 17, INK, "Helvetica-Bold")
 
-    node(left_x + 30, 228, 120, 50, "Human\nrequest", WARN, fill=BG, title_size=12.5)
-    node(left_x + 30, 148, 120, 50, "Agent\nrequest", WARN, fill=BG, title_size=12.5)
-    node(left_x + 205, 186, 150, 60, "Download /\nopen code", WARN, fill=BG, title_size=12.5)
-    node(left_x + 410, 186, 104, 60, "Protected\nhost", WARN, fill=BG)
+    node(left_x + 30, 182, 120, 50, "Human\nrequest", WARN, fill=BG, title_size=12.5)
+    node(left_x + 30, 102, 120, 50, "Agent\nrequest", WARN, fill=BG, title_size=12.5)
+    node(left_x + 205, 140, 150, 60, "Download /\nopen code", WARN, fill=BG, title_size=12.5)
+    node(left_x + 410, 140, 104, 60, "Protected\nhost", WARN, fill=BG)
 
-    arrow(drawing, left_x + 150, 253, left_x + 205, 228, color=WARN)
-    arrow(drawing, left_x + 150, 173, left_x + 205, 204, color=WARN)
-    arrow(drawing, left_x + 355, 216, left_x + 410, 216, color=WARN, width=3.1)
-    add_text(drawing, left_x + 198, 110, "Direct path to host", 13, WARN, "Helvetica-Bold")
+    arrow(drawing, left_x + 150, 207, left_x + 205, 182, color=WARN)
+    arrow(drawing, left_x + 150, 127, left_x + 205, 158, color=WARN)
+    arrow(drawing, left_x + 355, 170, left_x + 410, 170, color=WARN, width=3.1)
+    add_text(drawing, left_x + 198, 52, "Direct path to host", 13, WARN, "Helvetica-Bold")
 
-    node(right_x + 26, 228, 120, 50, "Human\nrequest", FAST, fill=BG, title_size=12.5)
-    node(right_x + 26, 148, 120, 50, "Agent\nrequest", FAST, fill=BG, title_size=12.5)
-    node(right_x + 188, 186, 132, 60, "ZitPit gate", FAST, fill=BG, subtitle="policy check", title_size=12.5)
-    node(right_x + 344, 180, 156, 72, "Quarantine +\nhoneypot", AMBER, fill=SOFT_AMBER, subtitle="hold / inspect", title_size=11.5)
-    node(right_x + 388, 98, 112, 60, "Protected\nhost", FAST, fill=BG, title_size=12.5)
+    node(right_x + 26, 182, 120, 50, "Human\nrequest", FAST, fill=BG, title_size=12.5)
+    node(right_x + 26, 102, 120, 50, "Agent\nrequest", FAST, fill=BG, title_size=12.5)
+    node(right_x + 188, 140, 132, 60, "ZitPit gate", FAST, fill=BG, subtitle="policy check", title_size=12.5)
+    node(right_x + 344, 134, 156, 72, "Quarantine +\nhoneypot", AMBER, fill=SOFT_AMBER, subtitle="hold / inspect", title_size=11.5)
+    node(right_x + 388, 52, 112, 60, "Protected\nhost", FAST, fill=BG, title_size=12.5)
 
-    arrow(drawing, right_x + 146, 253, right_x + 188, 224, color=FAST)
-    arrow(drawing, right_x + 146, 173, right_x + 188, 208, color=FAST)
-    arrow(drawing, right_x + 320, 216, right_x + 344, 216, color=FAST)
-    arrow(drawing, right_x + 422, 180, right_x + 444, 158, color=FAST)
-    add_text(drawing, right_x + 148, 92, "Held before host execution", 13, FAST, "Helvetica-Bold")
+    arrow(drawing, right_x + 146, 207, right_x + 188, 178, color=FAST)
+    arrow(drawing, right_x + 146, 127, right_x + 188, 162, color=FAST)
+    arrow(drawing, right_x + 320, 170, right_x + 344, 170, color=FAST)
+    arrow(drawing, right_x + 422, 134, right_x + 444, 112, color=FAST)
+    add_text(drawing, right_x + 148, 44, "Held before host execution", 13, FAST, "Helvetica-Bold")
 
     return drawing
 

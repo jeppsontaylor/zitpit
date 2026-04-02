@@ -16,7 +16,7 @@
 
 \hypersetup{
   colorlinks=false,
-  pdfauthor={Ben Taylor},
+  pdfauthor={Jepson Taylor, Chris Brousseau, Jordan Hildebrandt, Kelli Quinn},
   pdftitle={ZitPit: The Artifact Firewall for Agentic Software Supply Chains}
 }
 
@@ -43,41 +43,36 @@
 \begin{@twocolumnfalse}
 \begin{center}
 {\LARGE\bfseries \product: The Artifact Firewall for Agentic Software Supply Chains\par}
-\vspace{0.45em}
+\vspace{0.15em}
 {\large Turning First-Seen Code into Policy Events\par}
-\vspace{0.9em}
-{\normalsize
-\begin{tabular}{cc}
-Jepson Taylor & Chris Brousseau \\
-\texttt{jepson@veox.ai} & \texttt{chris@veox.ai} \\
-Jordan Hildebrandt & Kelli Quinn \\
-\texttt{j@veox.ai} & \texttt{kelli@veox.ai}
-\end{tabular}\par}
-\vspace{0.35em}
+\vspace{0.28em}
+{\normalsize Jepson Taylor \hspace{0.75em} Chris Brousseau \hspace{0.75em} Jordan Hildebrandt \hspace{0.75em} Kelli Quinn\par}
+\vspace{0.04em}
+{\small \texttt{jepson@veox.ai} \hspace{0.55em} \texttt{chris@veox.ai} \hspace{0.55em} \texttt{j@veox.ai} \hspace{0.55em} \texttt{kelli@veox.ai}\par}
+\vspace{0.10em}
 {\small VEOX Research Group\par}
-{\small Open-source research draft\par}
 {\small \url{https://github.com/jeppsontaylor/zitpit}\par}
-\vspace{0.9em}
+\vspace{0.22em}
 \end{center}
 
 \begin{abstract}
-AI IDEs and coding agents compress search, dependency intake, workspace open, and execution into one low-observability loop. In that setting, a repository clone, package install, workflow reference, shell bootstrap, or repo-scoped agent configuration can cross from discovery to execution before a human reaches a durable review checkpoint. \product{} is a mandatory mediation layer for consumer-side software intake in agentic development environments. It resolves external requests to immutable identities when possible, creates durable policy events before protected-host execution, routes first-seen artifacts into a controlled evidence lane, and accelerates approved artifacts through local cache and in-memory hot cache. This paper defines the system's claim boundary, threat model, policy model, and trust inputs, and reports preliminary public evidence from repeated Git smart-HTTP intake benchmarks plus a broader attack-family coverage matrix. The paper's central claim is narrow and enforceable: first-seen external code becomes a policy event before it becomes execution on a protected host.
+AI IDEs and coding agents compress search, dependency intake, workspace open, and execution into one low-observability loop. In that setting, a repository clone, package install, workflow reference, shell bootstrap, or repo-scoped agent configuration can cross from discovery to execution before a human reaches a durable review checkpoint. \product{} is a 100\% open-source Rust system released under the MIT license for consumer-side software intake in agentic development environments. It resolves external requests to immutable identities when possible, creates durable policy events before protected-host execution, routes first-seen artifacts into a controlled evidence lane, and accelerates approved artifacts through local cache and in-memory hot cache. This paper defines the system's claim boundary, threat model, policy model, and trust inputs, and reports preliminary public evidence from repeated Git smart-HTTP intake benchmarks plus a broader attack-family coverage matrix. The paper's central claim is narrow and enforceable: first-seen external code becomes a policy event before it becomes execution on a protected host.
 \end{abstract}
 
-\vspace{0.35em}
+\vspace{0.08em}
 \noindent\textbf{Index Terms}---software supply chain security, AI agents, artifact firewall, provenance, quarantine, governed execution, observability
-\vspace{1.1em}
+\vspace{0.12em}
+\begin{center}
+\resizebox{0.94\textwidth}{!}{\includegraphics{figures/opener_comparison_reportlab.pdf}}
+
+\vspace{0.1em}
+\parbox{0.94\textwidth}{\footnotesize \textbf{Fig. 1.} Without mediation, human and agent requests can move external code directly toward host execution; with \product{}, requests are held behind policy check and quarantine before the protected host.}
+\end{center}
+\vspace{0.12em}
 \end{@twocolumnfalse}
 ]
 
 \section{Introduction}
-
-\begin{figure*}[t]
-\centering
-\includegraphics[width=0.98\textwidth]{figures/opener_comparison_reportlab.pdf}
-\caption{Without mediation, human and agent requests can move external code directly toward host execution; with \product{}, requests are held behind policy check and quarantine before the protected host.}
-\label{fig:opener}
-\end{figure*}
 
 Imagine a developer asking an AI IDE to ``set up this repo and wire in observability.'' In the next few seconds the tool may search for a package, clone a repository, open project memory files, read repo-scoped agent settings, start a devcontainer, install dependencies, and invoke helper scripts. The human often sees prompts, shell output, or a final working state, but not a durable checkpoint where newly discovered external code has been resolved, reviewed, and granted execution rights under a stable policy. In practice the operator is often approving \emph{intent} rather than concrete external artifacts.
 
@@ -135,16 +130,9 @@ The threat model assumes that protected hosts are not already fully compromised,
 
 \section{Architecture and Policy}
 
-\begin{figure*}[t]
-\centering
-\includegraphics[width=0.98\textwidth]{figures/architecture.pdf}
-\caption{Trust boundaries and control flow. The architecture is centered on mediated intake, not on release branding. Policy, provenance, cache, cold-lane evidence, and revocation live in the control plane; execution rights are granted only after immutable binding and verdict evaluation.}
-\label{fig:arch}
-\end{figure*}
-
 \subsection{Acquire (Implemented)}
 
-The current implementation is strongest on intake mediation. Requests from agents, IDEs, or CI runners first hit a gateway that resolves selectors onto the strongest available immutable identity. For Git this means the smart-HTTP path and resolved commit identity; for other surfaces it means exact digests, pinned SHAs, or equivalent immutable selectors wherever the ecosystem allows it. Floating tags, branch heads, and \texttt{latest} are treated as policy exceptions rather than default trust.
+The current implementation is strongest on intake mediation. Requests from agents, IDEs, or CI runners first hit a gateway that resolves selectors onto the strongest available immutable identity. Policy, provenance, cache state, and revocation live in the control plane behind that gateway, while protected-host execution rights are granted only after verdict evaluation. For Git this means the smart-HTTP path and resolved commit identity; for other surfaces it means exact digests, pinned SHAs, or equivalent immutable selectors wherever the ecosystem allows it. Floating tags, branch heads, and \texttt{latest} are treated as policy exceptions rather than default trust.
 
 \subsection{Controlled Build Lane (Partial)}
 
