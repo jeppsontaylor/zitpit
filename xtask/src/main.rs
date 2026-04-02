@@ -821,15 +821,28 @@ async fn demo_smoke() -> Result<()> {
         bail!("workspace git config did not include ZitPit proxy");
     }
 
-    let approved_first = run_ssh_timed(
-        &ssh_base,
-        &format!("git ls-remote {}", paths.approved_source),
-    )?;
+    let approved_probe = git_smart_http_probe_command(&paths.approved_source);
+    let unknown_probe = git_smart_http_probe_command(&paths.unknown_source);
+    let real_public_probe = git_smart_http_probe_command(&paths.real_public_source);
+
+    let approved_first = run_ssh_timed(&ssh_base, &approved_probe)?;
     if !approved_first.output.status.success() {
         bail!(
-            "approved repo first fetch failed: {}",
+            "approved repo first fetch failed: {}{}",
+            String::from_utf8_lossy(&approved_first.output.stdout),
             String::from_utf8_lossy(&approved_first.output.stderr)
         );
+    }
+    let approved_first_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&approved_first.output.stdout),
+        String::from_utf8_lossy(&approved_first.output.stderr)
+    );
+    if !approved_first_output.contains("ZITPIT_HTTP_STATUS:200") {
+        bail!("approved repo first fetch did not return HTTP 200: {approved_first_output}");
+    }
+    if !approved_first_output.contains("git-upload-pack") {
+        bail!("approved repo first fetch did not return Git smart-HTTP service data");
     }
     let approved_first_lifecycle =
         find_git_lifecycle_since(&admin, &paths.approved_source, approved_first.started_at).await?;
@@ -842,15 +855,21 @@ async fn demo_smoke() -> Result<()> {
         bail!("approved repo first fetch did not perform an upstream acquisition");
     }
 
-    let approved_cached = run_ssh_timed(
-        &ssh_base,
-        &format!("git ls-remote {}", paths.approved_source),
-    )?;
+    let approved_cached = run_ssh_timed(&ssh_base, &approved_probe)?;
     if !approved_cached.output.status.success() {
         bail!(
-            "approved repo cache-hit fetch failed: {}",
+            "approved repo cache-hit fetch failed: {}{}",
+            String::from_utf8_lossy(&approved_cached.output.stdout),
             String::from_utf8_lossy(&approved_cached.output.stderr)
         );
+    }
+    let approved_cached_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&approved_cached.output.stdout),
+        String::from_utf8_lossy(&approved_cached.output.stderr)
+    );
+    if !approved_cached_output.contains("ZITPIT_HTTP_STATUS:200") {
+        bail!("approved repo cache-hit fetch did not return HTTP 200: {approved_cached_output}");
     }
     let approved_cached_lifecycle =
         find_git_lifecycle_since(&admin, &paths.approved_source, approved_cached.started_at)
@@ -864,36 +883,30 @@ async fn demo_smoke() -> Result<()> {
         bail!("approved repo second fetch did not hit the approved cache");
     }
 
-    let unknown_result = run_ssh_timed(
-        &ssh_base,
-        &format!("git ls-remote {}", paths.unknown_source),
-    )?;
-    if unknown_result.output.status.success() {
-        bail!("unknown repo unexpectedly succeeded");
-    }
+    let unknown_result = run_ssh_timed(&ssh_base, &unknown_probe)?;
     let unknown_output = format!(
         "{}{}",
         String::from_utf8_lossy(&unknown_result.output.stdout),
         String::from_utf8_lossy(&unknown_result.output.stderr)
     );
+    if !unknown_output.contains("ZITPIT_HTTP_STATUS:503") {
+        bail!("unknown repo response did not return HTTP 503: {unknown_output}");
+    }
     if !unknown_output.contains("check back in about") {
         bail!("unknown repo response did not include retry guidance: {unknown_output}");
     }
     let unknown_lifecycle =
         find_git_lifecycle_since(&admin, &paths.unknown_source, unknown_result.started_at).await?;
 
-    let real_public_result = run_ssh_timed(
-        &ssh_base,
-        &format!("git ls-remote {}", paths.real_public_source),
-    )?;
-    if real_public_result.output.status.success() {
-        bail!("real public repo unexpectedly succeeded without approval");
-    }
+    let real_public_result = run_ssh_timed(&ssh_base, &real_public_probe)?;
     let real_public_output = format!(
         "{}{}",
         String::from_utf8_lossy(&real_public_result.output.stdout),
         String::from_utf8_lossy(&real_public_result.output.stderr)
     );
+    if !real_public_output.contains("ZITPIT_HTTP_STATUS:503") {
+        bail!("real public repo response did not return HTTP 503: {real_public_output}");
+    }
     if !real_public_output.contains("check back in about") {
         bail!("real public repo response did not include retry guidance: {real_public_output}");
     }
@@ -1047,20 +1060,11 @@ async fn demo_smoke() -> Result<()> {
                 "interactive fail-closed login",
                 &interactive_fail_closed,
             ),
-            approved_first: CommandSummary::from_timed_command(
-                &format!("git ls-remote {}", paths.approved_source),
-                &approved_first,
-            ),
-            approved_cached: CommandSummary::from_timed_command(
-                &format!("git ls-remote {}", paths.approved_source),
-                &approved_cached,
-            ),
-            unknown_pending: CommandSummary::from_timed_command(
-                &format!("git ls-remote {}", paths.unknown_source),
-                &unknown_result,
-            ),
+            approved_first: CommandSummary::from_timed_command(&approved_probe, &approved_first),
+            approved_cached: CommandSummary::from_timed_command(&approved_probe, &approved_cached),
+            unknown_pending: CommandSummary::from_timed_command(&unknown_probe, &unknown_result),
             real_public_pending: CommandSummary::from_timed_command(
-                &format!("git ls-remote {}", paths.real_public_source),
+                &real_public_probe,
                 &real_public_result,
             ),
             bypass_attempt: CommandSummary::from_output(
@@ -1211,6 +1215,12 @@ fn render_ssh_config(metadata: &DemoSetupMetadata) -> String {
     format!(
         "Host {DEMO_SSH_ALIAS}\n  HostName 127.0.0.1\n  Port {DEMO_SSH_PORT}\n  User zitpit\n  IdentityFile {}\n  IdentitiesOnly yes\n  HostKeyAlias {DEMO_SSH_HOST_KEY_ALIAS}\n  StrictHostKeyChecking accept-new",
         metadata.client_private_key.display()
+    )
+}
+
+fn git_smart_http_probe_command(source_url: &str) -> String {
+    format!(
+        "curl -sS --proxy http://zitpit-gateway:3004 -H 'Git-Protocol: version=2' -D - -o - -w '\\nZITPIT_HTTP_STATUS:%{{http_code}}\\n' '{source_url}/info/refs?service=git-upload-pack'"
     )
 }
 
