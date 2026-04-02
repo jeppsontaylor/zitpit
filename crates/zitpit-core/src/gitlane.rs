@@ -1234,7 +1234,7 @@ mod tests {
     #[test]
     fn resolve_git_upstream_prefers_seeded_local_mirror_when_present() {
         let temp = tempdir().expect("tempdir");
-        let source_url = "http://github.com/jeppsontaylor/approved.git";
+        let source_url = "https://github.com/jeppsontaylor/approved.git";
         write_seeded_mirror(temp.path(), source_url);
 
         let upstream = resolve_git_upstream_with_env(source_url, temp.path().to_str(), None)
@@ -1248,7 +1248,7 @@ mod tests {
     #[test]
     fn resolve_git_upstream_preserves_live_source_when_seeded_mirror_is_missing() {
         let temp = tempdir().expect("tempdir");
-        let source_url = "http://github.com/axios/axios.git";
+        let source_url = "https://github.com/axios/axios.git";
 
         let upstream = resolve_git_upstream_with_env(source_url, temp.path().to_str(), None)
             .expect("resolve upstream");
@@ -1260,7 +1260,7 @@ mod tests {
     #[test]
     fn resolve_git_upstream_uses_override_when_no_seeded_mirror_exists() {
         let temp = tempdir().expect("tempdir");
-        let source_url = "http://github.com/axios/axios.git";
+        let source_url = "https://github.com/axios/axios.git";
 
         let upstream = resolve_git_upstream_with_env(
             source_url,
@@ -1279,7 +1279,7 @@ mod tests {
     #[test]
     fn upstream_fetch_detail_reports_live_fetch_without_seeded_mirror() {
         let upstream = resolve_git_upstream_with_env(
-            "http://github.com/axios/axios.git",
+            "https://github.com/axios/axios.git",
             Some("/tmp/nonexistent-zitpit-upstream"),
             None,
         )
@@ -1287,11 +1287,11 @@ mod tests {
 
         let detail = upstream_fetch_detail(
             "quarantine acquisition started",
-            "http://github.com/axios/axios.git",
+            "https://github.com/axios/axios.git",
             &upstream,
         );
 
         assert!(detail.contains("no seeded mirror found"));
-        assert!(detail.contains("fetching live via http://github.com/axios/axios.git"));
+        assert!(detail.contains("fetching live via https://github.com/axios/axios.git"));
     }
 }

@@ -118,9 +118,9 @@ impl DemoPaths {
         Self {
             ssh_dir: root.join("ssh"),
             env_file: root.join("demo.env"),
-            approved_source: "http://github.com/jeppsontaylor/approved.git".to_string(),
-            unknown_source: "http://github.com/jeppsontaylor/unknown.git".to_string(),
-            real_public_source: "http://github.com/axios/axios.git".to_string(),
+            approved_source: "https://github.com/jeppsontaylor/approved.git".to_string(),
+            unknown_source: "https://github.com/jeppsontaylor/unknown.git".to_string(),
+            real_public_source: "https://github.com/axios/axios.git".to_string(),
             root,
             runtime,
         }
@@ -717,6 +717,7 @@ fn demo_down() -> Result<()> {
     if !paths.env_file.exists() {
         return Ok(());
     }
+    cleanup_demo_runtime_contents(&paths)?;
     run_command(
         docker_command()
             .args(["compose", "--env-file"])
@@ -1279,7 +1280,7 @@ fn safe_repo_dir(source_url: &str) -> String {
 
 fn reset_demo_state(paths: &DemoPaths) -> Result<()> {
     if paths.runtime.data_dir.exists() {
-        fs::remove_dir_all(&paths.runtime.data_dir).with_context(|| {
+        remove_demo_path(&paths.runtime.data_dir).with_context(|| {
             format!(
                 "remove existing demo runtime state {}",
                 paths.runtime.data_dir.display()
@@ -1287,6 +1288,71 @@ fn reset_demo_state(paths: &DemoPaths) -> Result<()> {
         })?;
     }
     Ok(())
+}
+
+fn cleanup_demo_runtime_contents(paths: &DemoPaths) -> Result<()> {
+    if !paths.runtime.data_dir.exists() {
+        return Ok(());
+    }
+    let runtime_dir = "/var/lib/zitpit";
+    let service_name = "zitpit-gateway";
+    let status = docker_command()
+        .args(["compose", "--env-file"])
+        .arg(&paths.env_file)
+        .args([
+            "-f",
+            "compose.yaml",
+            "exec",
+            "-T",
+            "-u",
+            "0",
+            service_name,
+            "sh",
+            "-lc",
+            &format!("rm -rf {runtime_dir}/* {runtime_dir}/.[!.]* {runtime_dir}/..?* || true"),
+        ])
+        .status();
+
+    match status {
+        Ok(status) if status.success() => Ok(()),
+        Ok(_) | Err(_) => Ok(()),
+    }
+}
+
+fn remove_demo_path(path: &Path) -> Result<()> {
+    match fs::remove_dir_all(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+            remove_demo_path_via_container(path).with_context(|| {
+                format!("remove demo state {} via docker fallback", path.display())
+            })?;
+            fs::remove_dir_all(path).with_context(|| {
+                format!("remove demo state {} after docker fallback", path.display())
+            })
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+
+fn remove_demo_path_via_container(path: &Path) -> Result<()> {
+    let absolute = path
+        .canonicalize()
+        .with_context(|| format!("canonicalize demo state path {}", path.display()))?;
+    let parent = absolute
+        .parent()
+        .context("demo state path must have a parent directory")?;
+    let leaf = absolute
+        .file_name()
+        .and_then(|name| name.to_str())
+        .context("demo state path must end in a valid UTF-8 directory name")?;
+
+    let mut command = docker_command();
+    command
+        .args(["run", "--rm", "-v"])
+        .arg(format!("{}:/target", parent.display()))
+        .args(["--entrypoint", "sh", "zitpit-service:dev", "-lc"])
+        .arg(format!("rm -rf /target/{leaf}"));
+    run_command(&mut command)
 }
 
 fn timed_compose_build(paths: &DemoPaths, no_cache: bool) -> Result<u128> {
@@ -1704,9 +1770,9 @@ mod tests {
             runtime: RuntimePaths::new(root.join("state")),
             ssh_dir: root.join("ssh"),
             env_file: root.join("demo.env"),
-            approved_source: "http://github.com/jeppsontaylor/approved.git".to_string(),
-            unknown_source: "http://github.com/jeppsontaylor/unknown.git".to_string(),
-            real_public_source: "http://github.com/axios/axios.git".to_string(),
+            approved_source: "https://github.com/jeppsontaylor/approved.git".to_string(),
+            unknown_source: "https://github.com/jeppsontaylor/unknown.git".to_string(),
+            real_public_source: "https://github.com/axios/axios.git".to_string(),
             root,
         }
     }
@@ -1763,7 +1829,7 @@ mod tests {
             decision_reason: "fail closed".to_string(),
             artifact_key: Some(ArtifactKey {
                 ecosystem: Ecosystem::Git,
-                source: "http://github.com/jeppsontaylor/unknown.git".to_string(),
+                source: "https://github.com/jeppsontaylor/unknown.git".to_string(),
                 requested_selector: "git-smart-http".to_string(),
                 selector_kind: SelectorKind::Floating,
             }),
