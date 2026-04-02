@@ -850,12 +850,22 @@ fn git_command_with_safe_directories(
     repo_root: Option<&Path>,
 ) -> Command {
     let mut command = Command::new("git");
-    for path in git_safe_directories(upstream, repo_root) {
-        command.arg("-c");
-        command.arg(OsString::from(format!(
-            "safe.directory={}",
-            path.to_string_lossy()
-        )));
+    let safe_directories = git_safe_directories(upstream, repo_root);
+    for (index, path) in safe_directories.iter().enumerate() {
+        command.env(
+            OsString::from(format!("GIT_CONFIG_KEY_{index}")),
+            "safe.directory",
+        );
+        command.env(
+            OsString::from(format!("GIT_CONFIG_VALUE_{index}")),
+            path.as_os_str(),
+        );
+    }
+    if !safe_directories.is_empty() {
+        command.env(
+            "GIT_CONFIG_COUNT",
+            OsString::from(safe_directories.len().to_string()),
+        );
     }
     command
 }
