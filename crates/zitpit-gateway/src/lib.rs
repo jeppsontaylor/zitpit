@@ -703,6 +703,7 @@ async fn handle_forward(
         .expect("proxy forward response"))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn persist_request_result(
     state: &AppState,
     observation: &RequestObservation,
@@ -844,7 +845,10 @@ async fn set_lockdown_mode(
     Json(payload): Json<LockdownModeRequest>,
 ) -> impl IntoResponse {
     if payload.mode.is_break_glass() {
-        if payload.requested_by.is_none() || payload.reason.is_none() || payload.expires_at.is_none() {
+        if payload.requested_by.is_none()
+            || payload.reason.is_none()
+            || payload.expires_at.is_none()
+        {
             return json_response(
                 StatusCode::BAD_REQUEST,
                 serde_json::json!({ "error": "BreakGlass mode requires requested_by, reason, and expires_at fields" }),
@@ -866,9 +870,12 @@ async fn set_lockdown_mode(
     } else {
         tracing::info!("Admin posture changed to {:?}", payload.mode);
     }
-    
+
     *state.lockdown_mode.write().unwrap() = payload.mode;
-    json_response(StatusCode::OK, serde_json::json!({ "status": "ok", "mode": payload.mode }))
+    json_response(
+        StatusCode::OK,
+        serde_json::json!({ "status": "ok", "mode": payload.mode }),
+    )
 }
 
 async fn classify(Json(observation): Json<RequestObservation>) -> impl IntoResponse {

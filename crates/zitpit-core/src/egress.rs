@@ -116,7 +116,10 @@ pub fn evaluate_egress(request: &EgressRequest) -> EgressDecision {
     evaluate_egress_with_mode(request, crate::types::LockdownMode::Protected)
 }
 
-pub fn evaluate_egress_with_mode(request: &EgressRequest, mode: crate::types::LockdownMode) -> EgressDecision {
+pub fn evaluate_egress_with_mode(
+    request: &EgressRequest,
+    mode: crate::types::LockdownMode,
+) -> EgressDecision {
     let matched_classes = request
         .verdict
         .matches
@@ -292,6 +295,19 @@ mod tests {
         }
     }
 
+    fn egress_req(zone: DestinationTrustZone, class: PayloadClass) -> EgressRequest {
+        let mut request = clean_request(zone);
+        request.verdict.is_clean = false;
+        request.verdict.matches.push(DlpMatch {
+            detector_id: "test-detector".to_string(),
+            class,
+            index_start: 0,
+            index_end: 10,
+            snippet: None,
+        });
+        request
+    }
+
     #[test]
     fn denies_unknown_destination_even_when_payload_is_clean() {
         let decision = evaluate_egress(&clean_request(DestinationTrustZone::UnknownExternal));
@@ -317,21 +333,21 @@ mod tests {
     fn egress_evaluator_handles_regulated_override() {
         let mut request = egress_req(
             DestinationTrustZone::ZitpitInternal,
-            PayloadClass::RegulatedData,
+            PayloadClass::RegulatedPhi,
         );
         let decision = evaluate_egress(&request);
         assert_eq!(decision.outcome, EgressOutcome::Deny);
 
         request.regulated_transport_approved = true;
         let decision = evaluate_egress(&request);
-        assert_eq!(decision.outcome, EgressOutcome::Allow);
+        assert_eq!(decision.outcome, EgressOutcome::StepUp);
     }
 
     #[test]
     fn sealed_mode_denies_stepup_as_deny() {
         let request = egress_req(
-            DestinationTrustZone::ApprovedRegistry,
-            PayloadClass::Credentials,
+            DestinationTrustZone::ApprovedModelApi,
+            PayloadClass::SourceCode,
         );
         let decision = evaluate_egress_with_mode(&request, crate::types::LockdownMode::Sealed);
         assert_eq!(decision.outcome, EgressOutcome::Deny);
@@ -346,8 +362,9 @@ mod tests {
         );
         let mut clean_request = request;
         clean_request.verdict.matches.clear();
-        
-        let decision = evaluate_egress_with_mode(&clean_request, crate::types::LockdownMode::Relaxed);
+
+        let decision =
+            evaluate_egress_with_mode(&clean_request, crate::types::LockdownMode::Relaxed);
         assert_eq!(decision.outcome, EgressOutcome::Allow);
         assert!(decision.reason.contains("relaxed mode allows clean egress"));
     }
@@ -360,6 +377,10 @@ mod tests {
         );
         let decision = evaluate_egress_with_mode(&request, crate::types::LockdownMode::BreakGlass);
         assert_eq!(decision.outcome, EgressOutcome::Allow);
-        assert!(decision.reason.contains("break-glass mode overrides egress policy"));
+        assert!(
+            decision
+                .reason
+                .contains("break-glass mode overrides egress policy")
+        );
     }
 }

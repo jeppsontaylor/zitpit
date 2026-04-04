@@ -172,12 +172,13 @@ pub enum TrustState {
 /// Administrative posture for the entire enforcement surface.
 /// Each mode orchestrates the existing granular booleans in `PolicyConfig`
 /// rather than replacing them; operators can still override individual flags.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum LockdownMode {
     /// Developer-friendly: warns on ambiguous actions, allows most process execution, still audited
     Relaxed,
     /// Default demo/production posture: brokered SSH, governed egress, current blocker set
+    #[default]
     Protected,
     /// Maximum containment: fail-closed for all ambiguous or unsupported action families
     Sealed,
@@ -185,11 +186,7 @@ pub enum LockdownMode {
     BreakGlass,
 }
 
-impl Default for LockdownMode {
-    fn default() -> Self {
-        Self::Protected
-    }
-}
+
 
 impl LockdownMode {
     /// Whether unrecognized ProcessExec commands should be allowed (true) or brokered/denied (false)

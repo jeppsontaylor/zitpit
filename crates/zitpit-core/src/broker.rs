@@ -69,14 +69,14 @@ impl ArtifactBroker {
             })
             .await?;
 
-        if matches!(decision.action, ProxyAction::Pending | ProxyAction::Blocked)
-            && coordinate.is_some()
-        {
-            self.ensure_quarantine_job(
-                coordinate.expect("checked is_some"),
-                &decision.classification,
-            )
-            .await?;
+        if matches!(decision.action, ProxyAction::Pending | ProxyAction::Blocked) {
+            if let Some(coord) = coordinate {
+                self.ensure_quarantine_job(
+                    coord,
+                    &decision.classification,
+                )
+                .await?;
+            }
         }
 
         Ok(decision)

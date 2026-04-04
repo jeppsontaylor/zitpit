@@ -891,6 +891,7 @@ mod tests {
                 paths,
                 policy.hold_duration_hours,
             ),
+            lockdown_mode: std::sync::Arc::new(std::sync::RwLock::new(policy.lockdown_mode)),
             policy: zitpit_core::PolicyConfig {
                 proxy_port,
                 ..policy
@@ -1025,6 +1026,7 @@ mod tests {
                 paths,
                 policy.hold_duration_hours,
             ),
+            lockdown_mode: std::sync::Arc::new(std::sync::RwLock::new(policy.lockdown_mode)),
             policy: zitpit_core::PolicyConfig {
                 proxy_port,
                 ..policy

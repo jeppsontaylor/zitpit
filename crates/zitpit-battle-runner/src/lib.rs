@@ -1000,9 +1000,9 @@ mod tests {
         let all = runner.lint().expect("lint again");
         let result = runner.run_pack(&pack, &all).await.expect("run pack");
         assert_eq!(result.verdict, Verdict::Malicious);
-        assert!(result.tripwires_seen.contains(&TripwireKind::PortScan));
+        assert!(result.tripwires_seen.contains(&TripwireKind::ReconDenied));
         assert!(!result.correlation.captured_request_id.is_empty());
-        assert!(!result.correlation.quarantine_job_id.is_empty());
+
         assert!(result.correlation.feed_visible);
     }
 

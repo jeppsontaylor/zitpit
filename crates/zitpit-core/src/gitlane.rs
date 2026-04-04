@@ -774,8 +774,6 @@ fn split_git_path(path: &str) -> (String, String) {
             format!("{repo}.git"),
             format!("/{}", remainder.trim_start_matches('/')),
         )
-    } else if path.ends_with(".git") {
-        (path.to_string(), String::new())
     } else {
         (path.to_string(), String::new())
     }
@@ -802,7 +800,7 @@ fn parse_cgi_response(bytes: &[u8]) -> Response<Full<Bytes>> {
     let mut builder = Response::builder().status(StatusCode::OK);
     for line in header_block.lines() {
         if let Some(status) = line.strip_prefix("Status:") {
-            if let Some(code) = status.trim().split_whitespace().next() {
+            if let Some(code) = status.split_whitespace().next() {
                 if let Ok(code) = code.parse::<u16>() {
                     builder = builder.status(StatusCode::from_u16(code).unwrap_or(StatusCode::OK));
                 }

