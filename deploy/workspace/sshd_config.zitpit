@@ -7,11 +7,16 @@ KbdInteractiveAuthentication no
 ChallengeResponseAuthentication no
 PubkeyAuthentication yes
 AuthorizedKeysFile .ssh/authorized_keys
-AllowUsers zitpit
+AllowUsers z
 UsePAM no
+DisableForwarding yes
+AllowTcpForwarding no
+PermitTunnel no
+X11Forwarding no
+PermitUserEnvironment no
 
-Match User zitpit
+Match User z
     SetEnv ZITPIT_PROTECTED=1
-    SetEnv ZITPIT_WINDOW_TITLE="ZitPit Protected SSH"
+    SetEnv ZITPIT_WINDOW_TITLE="LOCKED DREAM SHELL"
     SetEnv ZITPIT_BG_COLOR=#103a1f
     ForceCommand /usr/local/bin/zitpit-protected-session

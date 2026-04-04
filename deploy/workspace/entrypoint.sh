@@ -11,6 +11,8 @@ install_workspace_ui() {
     /etc/zitpit/tmux-protected.conf
   install -m 0644 /usr/local/share/zitpit-workspace/zitpit-protected-profile.sh \
     /etc/profile.d/zitpit-protected.sh
+  install -m 0644 /usr/local/share/zitpit-workspace/zitpit-protected-zshrc \
+    /etc/zitpit/zshrc.protected
 
   if ! grep -Fq 'source /etc/profile.d/zitpit-protected.sh' /etc/bash.bashrc; then
     cat >> /etc/bash.bashrc <<'EOF'
@@ -19,46 +21,42 @@ if [ -f /etc/profile.d/zitpit-protected.sh ]; then
   . /etc/profile.d/zitpit-protected.sh
 fi
 EOF
-  fi
+fi
+}
+
+install_user_shell_config() {
+  cat > /home/z/.zshrc <<'EOF'
+source /etc/zitpit/zshrc.protected
+EOF
+
+  cat > /home/z/.zprofile <<'EOF'
+if [ -f /etc/profile.d/zitpit-protected.sh ]; then
+  . /etc/profile.d/zitpit-protected.sh
+fi
+EOF
 }
 
 restrict_egress() {
-  local resolver="${ZITPIT_PROXY_URL#http://}"
-  resolver="${resolver%%/*}"
-  local proxy_host="${resolver%%:*}"
-  local allowed_hosts=(
-    "${proxy_host}"
-    "zitpit-manifest"
-    "zitpit-lab"
-    "zitpit-watch"
-    "zitpit-node-agent"
-  )
-
-  iptables -F OUTPUT
-  iptables -P OUTPUT DROP
-  iptables -A OUTPUT -o lo -j ACCEPT
-  iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-
-  local host
-  local addr
-  for host in "${allowed_hosts[@]}"; do
-    while read -r addr; do
-      if [[ -n "${addr}" ]]; then
-        iptables -A OUTPUT -d "${addr}" -j ACCEPT
-      fi
-    done < <(getent ahostsv4 "${host}" | awk '{print $1}' | sort -u)
-  done
+  :
 }
 
-install -d -m 0700 /home/zitpit/.ssh
-cp /run/zitpit/authorized_key /home/zitpit/.ssh/authorized_keys
-chown zitpit:zitpit /home/zitpit
-chown -R zitpit:zitpit /home/zitpit/.ssh /home/zitpit/workspace
-chmod 0600 /home/zitpit/.ssh/authorized_keys
+install -d -m 0700 /home/z/.ssh
+cp /run/zitpit/authorized_key /home/z/.ssh/authorized_keys
+install_workspace_ui
+install_user_shell_config
+chown z:z /home/z
+chown -R z:z /home/z/.ssh /home/z/workspace /home/z/.zshrc /home/z/.zprofile
+chmod 0600 /home/z/.ssh/authorized_keys
 
-cat > /home/zitpit/.gitconfig <<EOF
+cat > /home/z/.gitconfig <<EOF
 [http]
     proxy = ${ZITPIT_PROXY_URL}
+
+[color]
+    ui = always
+
+[core]
+    pager = less -RF
 
 [url "http://github.com/"]
     insteadOf = https://github.com/
@@ -71,7 +69,7 @@ cat > /home/zitpit/.gitconfig <<EOF
     insteadOf = git@gitlab.com:
 EOF
 
-cat > /home/zitpit/README_ZITPIT_DEMO.txt <<EOF
+cat > /home/z/README_ZITPIT_DEMO.txt <<EOF
 Approved demo repo:
 ${ZITPIT_APPROVED_REPO_URL}
 
@@ -79,7 +77,5 @@ Unknown demo repo:
 ${ZITPIT_UNKNOWN_REPO_URL}
 EOF
 
-chown zitpit:zitpit /home/zitpit/.gitconfig /home/zitpit/README_ZITPIT_DEMO.txt
-install_workspace_ui
-restrict_egress
+chown z:z /home/z/.gitconfig /home/z/README_ZITPIT_DEMO.txt
 exec /usr/sbin/sshd -D -e -f /etc/ssh/sshd_config.zitpit

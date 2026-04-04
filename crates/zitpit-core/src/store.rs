@@ -664,6 +664,7 @@ mod tests {
             client_outcome: Some(ClientVisibleOutcome::TemporaryFailure),
             decision_reason: "fail closed".to_string(),
             artifact_key: None,
+            egress_decision: None,
             trace: crate::types::ProxyTrace::new(None, None, Utc::now())
                 .with_decision("initial request captured"),
         };

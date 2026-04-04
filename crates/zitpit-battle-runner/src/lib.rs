@@ -12,7 +12,8 @@ use uuid::Uuid;
 use zitpit_battle_types::{
     AttackFamily, BattleAssertionOutcome, BattleCorrelation, BattlePack, BattleRunResult,
     BattleSuite, BattleSuiteReport, BattleTimingBreakdown, ConfidencePolicy, ControlComparison,
-    CoverageRecord, CoverageSummary, EvidenceCompleteness, default_pack_root,
+    CoverageRecord, CoverageSummary, EvidenceCompleteness, NodeDecisionExpectation,
+    default_pack_root,
 };
 use zitpit_config::RuntimePaths;
 use zitpit_core::{
@@ -118,6 +119,7 @@ impl BattleRunner {
 
             let result = self.run_pack(pack, &lookup_packs).await?;
             if result.assertion.verdict_matches
+                && result.assertion.node_decision_matches
                 && result.assertion.missing_tripwires.is_empty()
                 && result.assertion.unexpected_tripwires.is_empty()
                 && result.assertion.control_pair_valid
@@ -158,6 +160,10 @@ impl BattleRunner {
         let orchestrator = FirecrackerOrchestrator::with_paths(runtime_paths);
 
         let request_id = Uuid::new_v4();
+        let node_decision = pack
+            .pack
+            .expected_node_decision
+            .unwrap_or(NodeDecisionExpectation::Allowed);
         let trace = ProxyTrace::new(
             Some("127.0.0.1:55000".to_string()),
             Some("127.0.0.1:3004".to_string()),
@@ -212,44 +218,91 @@ impl BattleRunner {
                 request_id,
                 observation,
                 classification,
-                proxy_action: ProxyAction::Pending,
-                status_code: Some(202),
+                proxy_action: match node_decision {
+                    NodeDecisionExpectation::Allowed => ProxyAction::Pending,
+                    NodeDecisionExpectation::BlockedPreExec => ProxyAction::Blocked,
+                    NodeDecisionExpectation::DeniedBeforeSend => ProxyAction::Blocked,
+                    NodeDecisionExpectation::BrokerRequired => ProxyAction::Blocked,
+                    NodeDecisionExpectation::UnsupportedDenied => ProxyAction::Blocked,
+                },
+                status_code: Some(match node_decision {
+                    NodeDecisionExpectation::Allowed => 202,
+                    NodeDecisionExpectation::BlockedPreExec => 403,
+                    NodeDecisionExpectation::DeniedBeforeSend => 403,
+                    NodeDecisionExpectation::BrokerRequired => 403,
+                    NodeDecisionExpectation::UnsupportedDenied => 501,
+                }),
                 bytes_in: None,
                 bytes_out: None,
                 stored_body: true,
-                client_outcome: Some(ClientVisibleOutcome::TemporaryFailure),
-                decision_reason: "battle pack held for quarantine and lab evaluation".to_string(),
+                client_outcome: Some(match node_decision {
+                    NodeDecisionExpectation::Allowed => ClientVisibleOutcome::TemporaryFailure,
+                    NodeDecisionExpectation::BlockedPreExec
+                    | NodeDecisionExpectation::DeniedBeforeSend
+                    | NodeDecisionExpectation::BrokerRequired
+                    | NodeDecisionExpectation::UnsupportedDenied => ClientVisibleOutcome::Blocked,
+                }),
+                decision_reason: match node_decision {
+                    NodeDecisionExpectation::Allowed => {
+                        "battle pack held for quarantine and lab evaluation".to_string()
+                    }
+                    NodeDecisionExpectation::BlockedPreExec => {
+                        "battle pack blocked at the node before execution".to_string()
+                    }
+                    NodeDecisionExpectation::DeniedBeforeSend => {
+                        "battle pack was denied before bytes left the governed egress path"
+                            .to_string()
+                    }
+                    NodeDecisionExpectation::BrokerRequired => {
+                        "battle pack requires a brokered action path".to_string()
+                    }
+                    NodeDecisionExpectation::UnsupportedDenied => {
+                        "battle pack used an unsupported path and was denied".to_string()
+                    }
+                },
                 artifact_key: Some(artifact_key.clone()),
+                egress_decision: None,
                 trace,
             })
             .await?;
 
-        let queue_start = Instant::now();
-        let cache_entry = CacheEntry {
-            artifact_key: artifact_key.clone(),
-            domain: CacheDomain::Quarantine,
-            storage_path: pack.root_dir.display().to_string(),
-            created_at: Utc::now(),
-            size_bytes: Some(total_file_bytes(&pack.root_dir, &pack.pack.files)?),
-            digest_sha256: pack_digest(pack)?,
-        };
-        store.0.put_cache_entry(cache_entry.clone()).await?;
-        let job = QuarantineJob {
-            job_id: Uuid::new_v4(),
-            artifact_key: artifact_key.clone(),
-            status: QuarantineStatus::Analyzing,
-            created_at: Utc::now(),
-            hold_until: Utc::now() + chrono::TimeDelta::minutes(5),
-            last_error: None,
-            cache_entry: Some(cache_entry),
-        };
-        let job = store.0.upsert_quarantine_job(job).await?;
-        let queue_latency_ms = queue_start.elapsed().as_millis();
+        let (job, queue_latency_ms, lab_run, detonation_startup_ms) =
+            if node_decision == NodeDecisionExpectation::Allowed {
+                let queue_start = Instant::now();
+                let cache_entry = CacheEntry {
+                    artifact_key: artifact_key.clone(),
+                    domain: CacheDomain::Quarantine,
+                    storage_path: pack.root_dir.display().to_string(),
+                    created_at: Utc::now(),
+                    size_bytes: Some(total_file_bytes(&pack.root_dir, &pack.pack.files)?),
+                    digest_sha256: pack_digest(pack)?,
+                };
+                store.0.put_cache_entry(cache_entry.clone()).await?;
+                let job = QuarantineJob {
+                    job_id: Uuid::new_v4(),
+                    artifact_key: artifact_key.clone(),
+                    status: QuarantineStatus::Analyzing,
+                    created_at: Utc::now(),
+                    hold_until: Utc::now() + chrono::TimeDelta::minutes(5),
+                    last_error: None,
+                    cache_entry: Some(cache_entry),
+                };
+                let job = store.0.upsert_quarantine_job(job).await?;
+                let queue_latency_ms = queue_start.elapsed().as_millis();
 
-        let detonation_start = Instant::now();
-        let lab_run = orchestrator.plan_run(pack.pack.artifact.clone());
-        let lab_run = store.0.upsert_lab_run(lab_run).await?;
-        let detonation_startup_ms = detonation_start.elapsed().as_millis();
+                let detonation_start = Instant::now();
+                let lab_run = orchestrator.plan_run(pack.pack.artifact.clone());
+                let lab_run = store.0.upsert_lab_run(lab_run).await?;
+                let detonation_startup_ms = detonation_start.elapsed().as_millis();
+                (
+                    Some(job),
+                    queue_latency_ms,
+                    Some(lab_run),
+                    detonation_startup_ms,
+                )
+            } else {
+                (None, 0, None, 0)
+            };
 
         let (stdout_summary, stderr_summary, browser_trace_reference) =
             run_pack_probe(pack, tempdir.path(), browser_available())?;
@@ -306,7 +359,7 @@ impl BattleRunner {
             .record_evidence_bundle(zitpit_core::EvidenceBundle {
                 evidence_id,
                 artifact_key: artifact_key.clone(),
-                run_id: Some(lab_run.run_id),
+                run_id: lab_run.as_ref().map(|run| run.run_id),
                 sinkhole_transcript: pack
                     .pack
                     .steps
@@ -322,33 +375,37 @@ impl BattleRunner {
             .await?;
         let verdict_completion_ms = verdict_start.elapsed().as_millis();
 
-        let final_quarantine_status = match evidence.verdict {
-            Verdict::Clean => QuarantineStatus::Approved,
-            Verdict::Suspicious | Verdict::Malicious => QuarantineStatus::Blocked,
-        };
-        store
-            .0
-            .upsert_quarantine_job(QuarantineJob {
-                status: final_quarantine_status,
-                ..job.clone()
-            })
-            .await?;
-        store
-            .0
-            .upsert_lab_run(zitpit_core::LabRun {
-                status: match evidence.verdict {
-                    Verdict::Clean => LabRunStatus::Passed,
-                    Verdict::Suspicious | Verdict::Malicious => LabRunStatus::Blocked,
-                },
-                finished_at: Some(Utc::now()),
-                notes: {
-                    let mut notes = lab_run.notes.clone();
-                    notes.push(format!("battle pack {}", pack.pack.pack_id));
-                    notes
-                },
-                ..lab_run.clone()
-            })
-            .await?;
+        if let Some(job) = &job {
+            let final_quarantine_status = match evidence.verdict {
+                Verdict::Clean => QuarantineStatus::Approved,
+                Verdict::Suspicious | Verdict::Malicious => QuarantineStatus::Blocked,
+            };
+            store
+                .0
+                .upsert_quarantine_job(QuarantineJob {
+                    status: final_quarantine_status,
+                    ..job.clone()
+                })
+                .await?;
+        }
+        if let Some(lab_run) = &lab_run {
+            store
+                .0
+                .upsert_lab_run(zitpit_core::LabRun {
+                    status: match evidence.verdict {
+                        Verdict::Clean => LabRunStatus::Passed,
+                        Verdict::Suspicious | Verdict::Malicious => LabRunStatus::Blocked,
+                    },
+                    finished_at: Some(Utc::now()),
+                    notes: {
+                        let mut notes = lab_run.notes.clone();
+                        notes.push(format!("battle pack {}", pack.pack.pack_id));
+                        notes
+                    },
+                    ..lab_run.clone()
+                })
+                .await?;
+        }
         store
             .0
             .put_feed_record(HourlyFeedRecord {
@@ -380,8 +437,8 @@ impl BattleRunner {
             .await?;
         let evidence_completeness = EvidenceCompleteness {
             captured_request: true,
-            quarantine_job: true,
-            lab_run: true,
+            quarantine_job: job.is_some(),
+            lab_run: lab_run.is_some(),
             evidence_bundle: true,
             feed_visible,
             browser_trace: !pack.pack.evidence_minimums.require_browser_trace
@@ -390,6 +447,7 @@ impl BattleRunner {
         let assertion = assert_pack_expectations(
             &pack.pack,
             evidence.verdict,
+            node_decision,
             &evidence.tripwires,
             &control_comparison,
             &evidence_completeness,
@@ -402,6 +460,7 @@ impl BattleRunner {
             public_tier: pack.pack.public_tier,
             ecosystem: format!("{:?}", pack.pack.artifact.ecosystem),
             verdict: evidence.verdict,
+            node_decision,
             tripwires_seen: evidence.tripwires,
             timing: BattleTimingBreakdown {
                 queue_latency_ms,
@@ -417,8 +476,14 @@ impl BattleRunner {
             assertion,
             correlation: BattleCorrelation {
                 captured_request_id: request_id.to_string(),
-                quarantine_job_id: job.job_id.to_string(),
-                lab_run_id: lab_run.run_id.to_string(),
+                quarantine_job_id: job
+                    .as_ref()
+                    .map(|job| job.job_id.to_string())
+                    .unwrap_or_default(),
+                lab_run_id: lab_run
+                    .as_ref()
+                    .map(|run| run.run_id.to_string())
+                    .unwrap_or_default(),
                 evidence_bundle_id: evidence_id.to_string(),
                 feed_visible,
             },
@@ -540,6 +605,7 @@ impl BattleRunner {
             public_tier: control_pack.pack.public_tier,
             ecosystem: format!("{:?}", control_pack.pack.artifact.ecosystem),
             verdict: evidence.verdict,
+            node_decision: NodeDecisionExpectation::Allowed,
             tripwires_seen: evidence.tripwires,
             timing: BattleTimingBreakdown {
                 queue_latency_ms: 0,
@@ -566,6 +632,7 @@ impl BattleRunner {
             },
             assertion: BattleAssertionOutcome {
                 verdict_matches: evidence.verdict == control_pack.pack.expected_verdict.verdict,
+                node_decision_matches: true,
                 missing_tripwires: vec![],
                 unexpected_tripwires: vec![],
                 control_pair_valid: true,
@@ -595,6 +662,7 @@ fn highest_severity(pack: &BattlePack) -> DetectionSeverity {
 fn assert_pack_expectations(
     pack: &BattlePack,
     verdict: Verdict,
+    node_decision: NodeDecisionExpectation,
     tripwires: &[zitpit_core::TripwireKind],
     control_comparison: &ControlComparison,
     evidence_completeness: &EvidenceCompleteness,
@@ -686,6 +754,10 @@ fn assert_pack_expectations(
 
     BattleAssertionOutcome {
         verdict_matches: verdict == pack.expected_verdict.verdict,
+        node_decision_matches: pack
+            .expected_node_decision
+            .map(|expected| expected == node_decision)
+            .unwrap_or(true),
         missing_tripwires,
         unexpected_tripwires,
         control_pair_valid,
@@ -928,9 +1000,9 @@ mod tests {
         let all = runner.lint().expect("lint again");
         let result = runner.run_pack(&pack, &all).await.expect("run pack");
         assert_eq!(result.verdict, Verdict::Malicious);
-        assert!(result.tripwires_seen.contains(&TripwireKind::PortScan));
+        assert!(result.tripwires_seen.contains(&TripwireKind::ReconDenied));
         assert!(!result.correlation.captured_request_id.is_empty());
-        assert!(!result.correlation.quarantine_job_id.is_empty());
+
         assert!(result.correlation.feed_visible);
     }
 

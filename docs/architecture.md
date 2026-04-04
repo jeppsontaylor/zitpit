@@ -1,116 +1,94 @@
 # ZitPit Architecture
 
-## Thesis
+## Canonical Framing
 
-ZitPit is a mandatory artifact firewall and governed execution plane for AI-assisted development. The project exists to make the safe path the fast path by forcing untrusted external code through policy, provenance, and quarantine before it can execute on a protected host.
+ZitPit is a **consumer-side software admission control layer for agentic development**.
 
-## Current Implementation
+The project still uses the product language of a mandatory artifact firewall and governed execution plane, but the core architectural invariant is narrower and stronger:
 
-The repository currently proves parts of the control plane, not the full end state. The current services model is:
+**First-seen external artifacts must earn execution rights under durable policy before they affect a protected host.**
 
-- `zitpit-gateway`: admin API plus a real forward proxy with `CONNECT` handling
-- `zitpit-manifest`: publishes signed manifest roots and shards from the shared store
-- `zitpit-lab`: plans Firecracker-backed detonation runs and persists evidence
-- `zitpit-watch`: publishes incident feeds and evidence from the shared store
-- `zitpit-node-agent`: generates Linux bootstrap material for CA trust and transparent capture
+## Current Implementation Boundary
 
-Supporting crates keep the binaries thin:
+The repository currently proves parts of the control plane, not the full end state.
 
-- `zitpit-config`: runtime path helpers for data directories and cache roots
-- `zitpit-flags`: shared CLI and env parsing for service startup
-- `zitpit-testing`: temp-path, seeded-store, and harness helpers for test code
-- `zitpit-admin-client`: typed client bindings for the admin APIs
-- `zitpit-tui`: operator console over the same APIs
-- `zitpit-battle-types`: benchmark schema, expectations, and result models
-- `zitpit-battle-runner`: benchmark executor over the same queue, lab, and evidence contracts
-- `zitpit-battle-cli`: thin CLI wrapper for benchmark execution
-- `xtask`: Docker demo orchestration, SSH config generation, smoke flows, and benchmark entrypoints
+Strongest public proof today:
 
-This implementation validates:
+- Git smart-HTTP intake benchmarking
+- brokered protected-session enforcement families
+- governed outbound DLP
 
-- request logging and decision contracts
-- signed manifest transport
-- cache and quarantine behavior
-- evidence emission and persistence
-- Firecracker run planning
-- benchmark harness plumbing
+Publicly partial or planned areas:
 
-It does not yet claim full coverage of every package manager, IDE, or agent runtime.
+- package-manager-native mediation across npm, PyPI, Cargo, Go, OCI, and raw installer paths
+- repo-open host-side enforcement depth
+- full workflow graph closure
+- universal host-side mandatory enforcement
+
+## Services
+
+The current services model is:
+
+- `zitpit-gateway`: admin API plus forward proxy and governed egress surface
+- `zitpit-manifest`: manifest publication from shared store
+- `zitpit-lab`: controlled evidence-lane planning and evidence persistence
+- `zitpit-watch`: incident and evidence publication
+- `zitpit-node-agent`: Linux bootstrap material for capture and node setup
+
+Supporting crates keep binaries thin and provide battle harnesses, typed admin clients, demo orchestration, and operator surfaces.
 
 ## Control Plane
 
-The architecture is organized around four stages:
-
 ### Acquire
 
-All external artifact ingress should resolve through ZitPit-managed intake. Approved content is served from a local content-addressed cache. Mutable refs such as branches, tags, and `latest` are policy exceptions, not the default trust model.
+Resolve external requests to the strongest available immutable identity. Approved immutable content is eligible for the fast lane. Mutable refs are policy exceptions, not default trust.
 
 ### Build
 
-Install-time and build-time execution should happen only in a controlled lane. Unknown or first-seen artifacts are quarantined before scripts, hooks, or build steps can run on the protected host.
+Separate build-time and install-time execution from acquisition. Unknown or policy-sensitive artifacts should not run install scripts or build hooks on the protected host by default.
 
 ### Execute
 
-Agents and workflows receive policy-scoped execution rights. Tool calls, shell commands, and repo-controlled execution surfaces are mediated by the agent policy layer rather than by ambient host trust.
+Grant policy-scoped rights rather than ambient host trust. The current repository publicly proves selected protected-session enforcement families here, not universal host closure.
 
 ### Publish
 
-Optional publisher-side controls inspect release artifacts before they leave a build pipeline. This protects against accidental source-map leaks, wrong-registry publishes, and workflow drift.
+Inspect outgoing release artifacts and workflow outputs when publish controls are enabled.
 
-## Hot Lane And Cold Lane
+## Fast Lane and Evidence Lane
 
-ZitPit uses two lanes:
+- fast lane: approved immutable artifacts served from local cache or hot cache
+- evidence lane: first-seen or policy-sensitive artifacts held for controlled analysis and operator-visible evidence
 
-- hot lane: known-good immutable artifacts served locally from cache
-- cold lane: first-seen or policy-drift artifacts quarantined for analysis and evidence generation
+The evidence lane improves ordering and evidence; it is not the root trust model.
 
-The safety invariant is simple: unknown artifacts never execute on the real developer or CI host by default.
+## Policy Event Contract
 
-## Trust Boundary
+The shared architecture contract is the artifact policy event documented in [`docs/policy-model.md`](docs/policy-model.md):
 
-The cache and the trust plane share a content-addressed boundary. Approval is keyed to the delivered artifact digest, not to a mutable name, branch, or tag. The manifest plane records provenance, publisher continuity, expiry, and revocation state alongside the digest.
+- `selector`
+- `resolved_immutable_identity`
+- `provenance_result`
+- `verdict`
+- `evidence_pointer`
+- `context`
+- `expiry_state`
+- `revocation_state`
 
-## Provenance, Policy, And Evidence
+This is the bridge between admission, evidence, and later recall.
 
-ZitPit separates three steps:
-
-1. verify provenance and identity
-2. evaluate policy
-3. emit signed evidence
-
-Where they happen:
-
-- provenance verification: manifest plane, backed by standards-native attestations
-- policy evaluation: gateway and execution policy engine
-- evidence emission: lab and watch services, plus any publish gate
-
-## Agent-Native Enforcement
-
-ZitPit treats repo-open and agent configuration as part of the supply chain. The enforcement surface includes:
-
-- `.claude/`
-- `.mcp.json`
-- devcontainers
-- workspace task files
-- editor extensions and hooks
-- shell startup files and automation scripts
-
-The goal is to prevent agents from routing around the gateway by editing their own guardrails.
-
-## Current Versus Roadmap
+## Current vs. Roadmap
 
 Current:
 
-- Git-first proxying
-- signed manifest transport
-- quarantine planning
-- battle harnesses for selected families
+- proof that approved immutable intake can be faster than unmanaged public fetch for mediated Git smart-HTTP requests
+- proof that selected protected-session execution families can be denied before execution
+- proof that selected sensitive outbound data can be blocked before transmission
 
 Roadmap:
 
-- universal artifact intake
-- exact-digest policy enforcement
-- provenance-aware trust decisions
-- agent-policy integration
-- publisher-side release gating
-- benchmark-driven public claims
+- `git_follow_on_intake` for submodules, LFS, and delayed Git fetch closure
+- `repo_open_execution_surface` for devcontainer lifecycle and agent-config-triggered behavior
+- package-dynamic-execution proof families for npm or Python
+- stronger provenance consumption, recall, and revocation handling
+- host-side mandatory enforcement beyond the current protected-session demo boundary

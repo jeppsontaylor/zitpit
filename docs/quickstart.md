@@ -2,13 +2,13 @@
 
 Welcome to the ZitPit defensive perimeter. This guide will help you get the current demo environment running quickly.
 
-The public benchmark matrix in [BENCHMARKS.md](../BENCHMARKS.md) defines the supported claim boundaries. This quickstart demonstrates the current Git intake path and operator workflow, not every roadmap surface.
+The public benchmark matrix in [BENCHMARKS.md](../BENCHMARKS.md) defines the supported claim boundaries. This quickstart demonstrates the current Git intake path, protected-session workflow, and governed egress path, not every roadmap surface.
 
 ## Prerequisites
 
 *   **Rust (latest stable)**: [rustup.rs](https://rustup.rs/)
 *   **Docker & Docker Compose**: For the containerized demo services.
-*   **Linux (recommended)**: For full SSH-proxy interception. macOS and Windows are supported for the local Git/HTTP proxy through manual configuration.
+*   **Linux (recommended)**: For the strongest end-to-end demo experience. macOS and Windows can be configured for some local proxy flows, but broader coverage is still partial on those platforms.
 
 ## Step 1: Verify the Repository
 

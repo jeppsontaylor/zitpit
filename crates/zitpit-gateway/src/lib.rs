@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, net::SocketAddr};
 
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{Path as AxumPath, State},
     response::IntoResponse,
     routing::{get, post},
 };
@@ -36,6 +36,7 @@ pub struct AppState {
     pub git_adapter: GitSmartHttpAdapter,
     pub policy: PolicyConfig,
     pub http_client: Client,
+    pub lockdown_mode: std::sync::Arc<std::sync::RwLock<zitpit_core::LockdownMode>>,
 }
 
 #[derive(Debug, Clone)]
@@ -73,6 +74,7 @@ pub async fn app_state_from_flags(flags: &CommonFlags) -> AppState {
             paths,
             policy.hold_duration_hours,
         ),
+        lockdown_mode: std::sync::Arc::new(std::sync::RwLock::new(policy.lockdown_mode)),
         policy,
         http_client: Client::builder()
             .redirect(reqwest::redirect::Policy::none())
@@ -85,9 +87,11 @@ pub fn build_admin_app(state: AppState) -> Router {
     Router::new()
         .route("/healthz", get(healthz))
         .route("/api/v1/policy/default", get(get_policy))
+        .route("/api/v1/policy/lockdown-mode", post(set_lockdown_mode))
         .route("/api/v1/classify", post(classify))
         .route("/api/v1/captured-requests", get(captured_requests))
         .route("/api/v1/fixtures/npm-pending", get(sample_npm_pending))
+        .route("/api/v1/fixtures/egress-sink/{case_id}", post(egress_sink))
         .with_state(state)
         .layer(TraceLayer::new_for_http())
 }
@@ -350,9 +354,12 @@ async fn handle_forward(
             &observation,
             &decision,
             artifact_key.clone(),
+            None,
             trace,
             StatusCode::FORBIDDEN,
             ClientVisibleOutcome::Blocked,
+            None,
+            Some(0),
         )
         .await;
         return Ok(json_response(
@@ -392,9 +399,12 @@ async fn handle_forward(
                             &observation,
                             &decision,
                             artifact_key.clone(),
+                            None,
                             trace,
                             status,
                             ClientVisibleOutcome::TemporaryFailure,
+                            None,
+                            None,
                         )
                         .await;
                         Ok(result.response)
@@ -415,9 +425,12 @@ async fn handle_forward(
                             &observation,
                             &decision,
                             artifact_key.clone(),
+                            None,
                             trace,
                             StatusCode::SERVICE_UNAVAILABLE,
                             ClientVisibleOutcome::UpstreamError,
+                            None,
+                            None,
                         )
                         .await;
                         Ok(json_response(
@@ -448,9 +461,12 @@ async fn handle_forward(
             &observation,
             &decision,
             artifact_key.clone(),
+            None,
             trace,
             StatusCode::TOO_EARLY,
             ClientVisibleOutcome::TemporaryFailure,
+            None,
+            None,
         )
         .await;
         return Ok(json_response(
@@ -469,6 +485,81 @@ async fn handle_forward(
             ));
         }
     };
+
+    let mut egress_decision = None;
+    if method != Method::GET && method != Method::HEAD && !body_bytes.is_empty() {
+        let verdict = zitpit_core::scan_payload(&body_bytes);
+        let egress_request = zitpit_core::EgressRequest {
+            request_id: uuid::Uuid::new_v4(),
+            session_id: None,
+            transfer_kind: infer_transfer_kind(&method, &url),
+            destination_zone: infer_destination_zone(request_url.as_ref(), &observation.authority),
+            target_url: Some(url.clone()),
+            encoding: verdict.encoding,
+            payload_size: Some(body_bytes.len()),
+            verdict,
+            regulated_transport_approved: false,
+        };
+
+        let decision_outcome = zitpit_core::evaluate_egress_with_mode(
+            &egress_request,
+            *state.lockdown_mode.read().unwrap(),
+        );
+        trace = trace.with_event(
+            zitpit_core::ProxyTraceKind::DlpScanned,
+            format!(
+                "encoding={:?} detectors={}",
+                decision_outcome.content_encoding,
+                decision_outcome.matched_detector_ids.join(",")
+            ),
+        );
+        if matches!(
+            decision_outcome.outcome,
+            zitpit_core::EgressOutcome::Deny
+                | zitpit_core::EgressOutcome::Unsupported
+                | zitpit_core::EgressOutcome::StepUp
+        ) {
+            trace = trace
+                .with_event(
+                    zitpit_core::ProxyTraceKind::EgressBlocked,
+                    format!("DLP blocked payload: {}", decision_outcome.reason),
+                )
+                .with_event(
+                    zitpit_core::ProxyTraceKind::Blocked,
+                    "DLP denied request before upstream routing",
+                )
+                .with_completion("blocked by dlp");
+            let _ = persist_request_result(
+                &state,
+                &observation,
+                &decision,
+                artifact_key.clone(),
+                Some(decision_outcome.clone()),
+                trace,
+                StatusCode::FORBIDDEN,
+                ClientVisibleOutcome::Blocked,
+                Some(body_bytes.len() as u64),
+                Some(0),
+            )
+            .await;
+
+            return Ok(json_response(
+                StatusCode::FORBIDDEN,
+                serde_json::json!({
+                    "error": "Egress payload blocked by DLP policy",
+                    "reason": decision_outcome.reason,
+                    "matched_classes": decision_outcome.matched_classes,
+                    "matched_detector_ids": decision_outcome.matched_detector_ids,
+                }),
+            ));
+        }
+
+        trace = trace.with_event(
+            zitpit_core::ProxyTraceKind::EgressAllowed,
+            format!("DLP allowed payload: {}", decision_outcome.reason),
+        );
+        egress_decision = Some(decision_outcome);
+    }
 
     if let (Some(git_coordinate), Some(request_url)) = (git_coordinate, request_url.as_ref()) {
         if matches!(decision.action, ProxyAction::Allow | ProxyAction::Fallback)
@@ -506,9 +597,12 @@ async fn handle_forward(
                         &observation,
                         &decision,
                         artifact_key.clone(),
+                        egress_decision.clone(),
                         trace,
                         result.response.status(),
                         ClientVisibleOutcome::Success,
+                        Some(body_bytes.len() as u64),
+                        None,
                     )
                     .await;
                     Ok(result.response)
@@ -554,9 +648,12 @@ async fn handle_forward(
                 &observation,
                 &decision,
                 artifact_key.clone(),
+                egress_decision.clone(),
                 trace,
                 StatusCode::BAD_GATEWAY,
                 ClientVisibleOutcome::UpstreamError,
+                Some(body_bytes.len() as u64),
+                None,
             )
             .await;
             return Ok(json_response(
@@ -588,9 +685,12 @@ async fn handle_forward(
         &observation,
         &decision,
         artifact_key,
+        egress_decision,
         trace,
         status,
         ClientVisibleOutcome::Success,
+        Some(body_bytes.len() as u64),
+        Some(response_bytes.len() as u64),
     )
     .await;
 
@@ -603,14 +703,18 @@ async fn handle_forward(
         .expect("proxy forward response"))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn persist_request_result(
     state: &AppState,
     observation: &RequestObservation,
     decision: &zitpit_core::ProxyDecision,
     artifact_key: Option<ArtifactKey>,
+    egress_decision: Option<zitpit_core::EgressDecision>,
     trace: zitpit_core::ProxyTrace,
     status: StatusCode,
     client_outcome: ClientVisibleOutcome,
+    bytes_in: Option<u64>,
+    bytes_out: Option<u64>,
 ) -> Result<(), zitpit_core::store::StoreError> {
     state
         .store
@@ -621,12 +725,13 @@ async fn persist_request_result(
             classification: decision.classification.clone(),
             proxy_action: decision.action,
             status_code: Some(status.as_u16()),
-            bytes_in: None,
-            bytes_out: None,
+            bytes_in,
+            bytes_out,
             stored_body: decision.classification.lane == zitpit_core::TrafficLane::CodeIntake,
             client_outcome: Some(client_outcome),
             decision_reason: decision.reason.clone(),
             artifact_key,
+            egress_decision,
             trace,
         })
         .await
@@ -722,7 +827,55 @@ async fn healthz(State(state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_policy(State(state): State<AppState>) -> impl IntoResponse {
-    Json(state.policy.clone())
+    let mut current_policy = state.policy.clone();
+    current_policy.lockdown_mode = *state.lockdown_mode.read().unwrap();
+    Json(current_policy)
+}
+
+#[derive(serde::Deserialize)]
+pub struct LockdownModeRequest {
+    pub mode: zitpit_core::LockdownMode,
+    pub requested_by: Option<String>,
+    pub reason: Option<String>,
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+async fn set_lockdown_mode(
+    State(state): State<AppState>,
+    Json(payload): Json<LockdownModeRequest>,
+) -> impl IntoResponse {
+    if payload.mode.is_break_glass() {
+        if payload.requested_by.is_none()
+            || payload.reason.is_none()
+            || payload.expires_at.is_none()
+        {
+            return json_response(
+                StatusCode::BAD_REQUEST,
+                serde_json::json!({ "error": "BreakGlass mode requires requested_by, reason, and expires_at fields" }),
+            );
+        }
+        let breakglass = zitpit_core::LockdownOverride {
+            mode: payload.mode,
+            requested_by: payload.requested_by.unwrap(),
+            reason: payload.reason.unwrap(),
+            expires_at: payload.expires_at.unwrap(),
+            evidence_id: uuid::Uuid::new_v4(),
+        };
+        tracing::info!(
+            "Admin posture overridden to BreakGlass by {} until {} for: {}",
+            breakglass.requested_by,
+            breakglass.expires_at,
+            breakglass.reason
+        );
+    } else {
+        tracing::info!("Admin posture changed to {:?}", payload.mode);
+    }
+
+    *state.lockdown_mode.write().unwrap() = payload.mode;
+    json_response(
+        StatusCode::OK,
+        serde_json::json!({ "status": "ok", "mode": payload.mode }),
+    )
 }
 
 async fn classify(Json(observation): Json<RequestObservation>) -> impl IntoResponse {
@@ -738,6 +891,15 @@ async fn captured_requests(State(state): State<AppState>) -> impl IntoResponse {
             .await
             .unwrap_or_default(),
     )
+}
+
+async fn egress_sink(AxumPath(case_id): AxumPath<String>, body: Bytes) -> impl IntoResponse {
+    Json(serde_json::json!({
+        "accepted": true,
+        "case_id": case_id,
+        "bytes": body.len(),
+        "sha256": digest_for(&String::from_utf8_lossy(&body)),
+    }))
 }
 
 async fn sample_npm_pending(State(state): State<AppState>) -> impl IntoResponse {
@@ -771,4 +933,54 @@ async fn sample_npm_pending(State(state): State<AppState>) -> impl IntoResponse 
         "artifact_key": ArtifactKey::from(coordinate),
         "request_fingerprint": digest_for("registry.npmjs.org/lodash/^4.17"),
     }))
+}
+
+fn infer_destination_zone(
+    request_url: Option<&Url>,
+    fallback_authority: &str,
+) -> zitpit_core::DestinationTrustZone {
+    let host = request_url
+        .and_then(|url| url.host_str())
+        .unwrap_or(fallback_authority)
+        .to_ascii_lowercase();
+
+    match host.as_str() {
+        "github.com" | "gitlab.com" | "bitbucket.org" => {
+            zitpit_core::DestinationTrustZone::ApprovedVcs
+        }
+        "registry.npmjs.org" | "pypi.org" | "files.pythonhosted.org" | "crates.io" => {
+            zitpit_core::DestinationTrustZone::ApprovedRegistry
+        }
+        "api.anthropic.com" | "api.openai.com" => {
+            zitpit_core::DestinationTrustZone::ApprovedModelApi
+        }
+        "docs.anthropic.com" | "platform.claude.com" | "platform.openai.com" => {
+            zitpit_core::DestinationTrustZone::ApprovedDocs
+        }
+        "localhost" | "127.0.0.1" | "zitpit-gateway" | "zitpit-manifest" | "zitpit-lab"
+        | "zitpit-watch" | "zitpit-node-agent" => zitpit_core::DestinationTrustZone::ZitpitInternal,
+        _ if host.starts_with("10.")
+            || host.starts_with("192.168.")
+            || host.starts_with("172.16.")
+            || host.starts_with("172.17.")
+            || host.starts_with("172.18.")
+            || host.ends_with(".internal")
+            || host.ends_with(".cluster.local") =>
+        {
+            zitpit_core::DestinationTrustZone::ZitpitInternal
+        }
+        _ => zitpit_core::DestinationTrustZone::UnknownExternal,
+    }
+}
+
+fn infer_transfer_kind(method: &Method, url: &str) -> zitpit_core::TransferKind {
+    if url.contains("git-receive-pack") {
+        zitpit_core::TransferKind::GitPush
+    } else if url.contains("/releases") || url.contains("upload") {
+        zitpit_core::TransferKind::ReleaseUpload
+    } else if matches!(*method, Method::POST | Method::PUT | Method::PATCH) {
+        zitpit_core::TransferKind::HttpReq
+    } else {
+        zitpit_core::TransferKind::RawTcp
+    }
 }

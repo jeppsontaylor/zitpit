@@ -63,19 +63,17 @@ impl ArtifactBroker {
                 client_outcome: None,
                 decision_reason: decision.reason.clone(),
                 artifact_key,
+                egress_decision: None,
                 trace: crate::types::ProxyTrace::new(None, None, observed_at)
                     .with_decision(decision.reason.clone()),
             })
             .await?;
 
-        if matches!(decision.action, ProxyAction::Pending | ProxyAction::Blocked)
-            && coordinate.is_some()
-        {
-            self.ensure_quarantine_job(
-                coordinate.expect("checked is_some"),
-                &decision.classification,
-            )
-            .await?;
+        if matches!(decision.action, ProxyAction::Pending | ProxyAction::Blocked) {
+            if let Some(coord) = coordinate {
+                self.ensure_quarantine_job(coord, &decision.classification)
+                    .await?;
+            }
         }
 
         Ok(decision)

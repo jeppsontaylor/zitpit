@@ -1,5 +1,8 @@
+pub mod behavior;
 pub mod broker;
 pub mod classifier;
+pub mod dlp;
+pub mod egress;
 pub mod firecracker;
 pub mod gitlane;
 pub mod lab;
@@ -11,6 +14,8 @@ pub mod types;
 
 pub use broker::ArtifactBroker;
 pub use classifier::RequestClassifier;
+pub use dlp::*;
+pub use egress::*;
 pub use firecracker::FirecrackerOrchestrator;
 pub use gitlane::{GitHttpBackend, GitSmartHttpAdapter, GitSmartHttpResult};
 pub use lab::{LabPlanner, TripwireEvaluator};

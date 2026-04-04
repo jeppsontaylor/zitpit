@@ -112,8 +112,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.workspace
-    cap_add:
-      - NET_ADMIN
+    hostname: lock
     environment:
       ZITPIT_PROXY_URL: ${ZITPIT_PROXY_URL}
       ZITPIT_APPROVED_REPO_URL: ${ZITPIT_APPROVED_REPO_URL}
@@ -121,7 +120,7 @@ services:
     volumes:
       - ${ZITPIT_SSH_PUBLIC_KEY}:/run/zitpit/authorized_key:ro
       - ${ZITPIT_SSH_HOST_KEY}:/run/zitpit/ssh_host_ed25519_key:ro
-      - ${ZITPIT_DATA_DIR}/workspace:/home/zitpit/workspace
+      - ${ZITPIT_DATA_DIR}/workspace:/home/z/workspace
     depends_on:
       - zitpit-gateway
       - zitpit-manifest
@@ -130,9 +129,17 @@ services:
       - zitpit-node-agent
     networks:
       - zitpit_internal
+
+  ssh-forwarder:
+    image: alpine/socat
+    command: tcp-listen:22,fork,reuseaddr tcp-connect:workspace-ssh:22
+    depends_on:
+      - workspace-ssh
+    networks:
       - zitpit_egress
+      - zitpit_internal
     ports:
-      - "42222:22"
+      - "42242:22"
 
 networks:
   zitpit_internal:

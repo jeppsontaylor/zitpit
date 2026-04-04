@@ -1,11 +1,20 @@
+FROM rust:1.92-bookworm AS builder
+WORKDIR /app
+COPY . .
+RUN cargo build --release -p zitpit-sessiond
+
 FROM debian:bookworm-slim
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openssh-server git curl ca-certificates procps iptables tmux \
+    && apt-get install -y --no-install-recommends \
+        openssh-server git curl ca-certificates procps tmux \
+        zsh fzf zoxide ripgrep fd-find bat btop lolcat exa \
+        zsh-autosuggestions zsh-syntax-highlighting \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /var/run/sshd /run/zitpit \
-    && useradd -m -d /home/zitpit -s /bin/bash zitpit \
-    && install -d -o zitpit -g zitpit -m 0700 /home/zitpit/.ssh
+    && useradd -m -d /home/z -s /bin/zsh z \
+    && install -d -o z -g z -m 0700 /home/z/.ssh /home/z/workspace
 COPY deploy/workspace/ /usr/local/share/zitpit-workspace/
+COPY --from=builder /app/target/release/zitpit-sessiond /usr/local/bin/zitpit-sessiond
 RUN install -m 0755 /usr/local/share/zitpit-workspace/entrypoint.sh /usr/local/bin/zitpit-workspace-entrypoint
 EXPOSE 22
 ENTRYPOINT ["/usr/local/bin/zitpit-workspace-entrypoint"]

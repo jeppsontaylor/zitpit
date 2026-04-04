@@ -1,11 +1,11 @@
 # ZitPit Research Paper Outline
 
-**Title**: *ZitPit: The Artifact Firewall for Agentic Software Supply Chains*
+**Title**: *ZitPit: Consumer-Side Admission Control for Agentic Software Intake*
 
-**Subtitle**: *Turning first-seen code into policy events*
+**Subtitle**: *Turning first-seen external artifacts into policy events*
 
 **Abstract**:  
-AI-assisted development turns dependency intake into machine-speed execution. ZitPit proposes a mandatory artifact firewall that forces external code through exact-digest admission, provenance-aware policy, and quarantine before it may execute on protected developer or CI hosts. The current public benchmark snapshot shows five public Git repositories moving from 433-1062 ms upstream medians to 32-44 ms from approved cache and 13-16 ms from hot cache, demonstrating that the safe path can be materially faster than the public path.
+AI IDEs and coding agents compress discovery, fetch, workspace open, installation, and execution into one low-observability loop. ZitPit argues for a stricter boundary: first-seen external artifacts should become durable policy events before they gain execution rights on protected developer or CI hosts. The current public evidence is intentionally narrow and explicit: repeated Git smart-HTTP intake measurements, implemented protected-session enforcement families, and governed outbound DLP proof families. The broader contribution is architectural rather than universal-coverage-by-assertion.
 
 ## I. Introduction
 
@@ -69,5 +69,5 @@ AI-assisted development turns dependency intake into machine-speed execution. Zi
 
 ## IX. Conclusion
 
-- ZitPit as an artifact firewall for agentic development
+- ZitPit as consumer-side admission control for agentic development
 - safer defaults for smaller teams and open-source consumers

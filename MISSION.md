@@ -7,12 +7,11 @@ AI agents move too quickly for manual review to be the primary control. When the
 ## Our Stance
 
 - the safe path must be the fast path
-- first-seen external code is a policy event
+- first-seen external artifacts are policy events
 - artifact identity matters more than names or mutable refs
 - execution is governed and secrets are starved
 - evidence matters more than hype
 
 ## Our Goal
 
-We are building a mandatory artifact firewall and governed execution plane for agentic development. The aim is to let small teams and open-source consumers default to safe intake without giving up speed.
-
+We are building a consumer-side software admission control layer for agentic development. The aim is to let small teams and open-source consumers default to safe intake without giving up speed.

@@ -23,6 +23,7 @@ pub enum BattleSuite {
     Cargo,
     Shell,
     Workspace,
+    Egress,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -39,6 +40,7 @@ pub enum AttackFamily {
     CargoBuildScripts,
     ShellInstallers,
     WorkspaceConfig,
+    DataExfiltration,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -63,6 +65,16 @@ pub enum RunnerMode {
     RuntimeProbe,
     BrowserReal,
     QueueFull,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum NodeDecisionExpectation {
+    Allowed,
+    BlockedPreExec,
+    DeniedBeforeSend,
+    BrokerRequired,
+    UnsupportedDenied,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -200,6 +212,8 @@ pub struct BattlePack {
     pub required_scenarios: Vec<BattleScenario>,
     pub suite_tags: Vec<BattleSuite>,
     pub execution: ExecutionRequirements,
+    #[serde(default)]
+    pub expected_node_decision: Option<NodeDecisionExpectation>,
     pub expected_verdict: ExpectedVerdict,
     pub expected_tripwires: ExpectedTripwireSet,
     pub control_expectations: ControlExpectations,
@@ -331,6 +345,10 @@ impl BattlePack {
             BattleSuite::Workspace => {
                 matches!(self.attack_family, AttackFamily::WorkspaceConfig)
             }
+            BattleSuite::Egress => {
+                matches!(self.attack_family, AttackFamily::DataExfiltration)
+                    || self.suite_tags.contains(&BattleSuite::Egress)
+            }
             _ => self.suite_tags.contains(&suite),
         }
     }
@@ -339,6 +357,7 @@ impl BattlePack {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BattleAssertionOutcome {
     pub verdict_matches: bool,
+    pub node_decision_matches: bool,
     pub missing_tripwires: Vec<TripwireKind>,
     pub unexpected_tripwires: Vec<TripwireKind>,
     pub control_pair_valid: bool,
@@ -389,6 +408,7 @@ pub struct BattleRunResult {
     pub public_tier: PublicTier,
     pub ecosystem: String,
     pub verdict: Verdict,
+    pub node_decision: NodeDecisionExpectation,
     pub tripwires_seen: Vec<TripwireKind>,
     pub timing: BattleTimingBreakdown,
     pub stdout_summary: String,
@@ -480,6 +500,7 @@ mod tests {
             expected_verdict: ExpectedVerdict {
                 verdict: Verdict::Malicious,
             },
+            expected_node_decision: None,
             expected_tripwires: ExpectedTripwireSet {
                 required: vec![TripwireKind::PortScan],
                 allowed_false_positives: vec![],

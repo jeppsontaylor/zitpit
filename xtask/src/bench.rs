@@ -168,7 +168,7 @@ fn resolve_repos(tokens: &[String], defaults: &[RepoSpec]) -> Result<Vec<RepoSpe
                     Url::parse(token).with_context(|| format!("parse repo url {token}"))?;
                 let name = parsed
                     .path_segments()
-                    .and_then(|segments| segments.filter(|segment| !segment.is_empty()).last())
+                    .and_then(|mut segments| segments.rfind(|segment| !segment.is_empty()))
                     .unwrap_or("repo");
                 let leaked: &'static str = Box::leak(token.clone().into_boxed_str());
                 let name: &'static str = Box::leak(name.to_string().into_boxed_str());

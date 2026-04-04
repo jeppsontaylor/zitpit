@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- [x] **Universal Artifact Guardian Pivot:** Transition of `zitpit-proxy` crate naming and architecture to `zitpit-gateway`.
+- [x] **Egress DLP Filter:** Live streaming outbound DLP filtering with smoke proofs for secrets and PHI.
+- [x] **LockdownMode Administrative Posture:** Dynamic isolation rule sets tailored for the gateway runtime.
+- [x] **Invasive Execution Telemetry:** Observability enhancements across instrumented nodes to track autonomous agent behavior.
 - [x] Initial commit: Rust workspace and core schemas.
 - [x] Signed manifest envelopes.
 - [x] SSH-Proxy interception and redirection.
