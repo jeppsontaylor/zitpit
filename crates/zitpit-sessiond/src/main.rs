@@ -33,7 +33,8 @@ fn main() -> Result<()> {
         let decision = policy.decide(&managed.request);
         append_audit_record(&cli.audit_log, &raw, &managed.request, &decision)
             .with_context(|| format!("append audit record to {}", cli.audit_log.display()))?;
-        return run_managed_command(&raw, &decision);
+        let exit_code = run_managed_command(&managed.request, &decision)?;
+        std::process::exit(exit_code);
     }
 
     if std::env::var_os("SSH_ORIGINAL_COMMAND").is_some() {

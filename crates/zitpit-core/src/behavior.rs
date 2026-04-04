@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::{
     ActionFamily, ActorType, BehaviorDecision, BehaviorRequest, CanonicalCommand, DataClass,
     DestinationContext, PolicyOutcome, TrustState,
@@ -305,10 +307,28 @@ pub fn canonicalize_command(ctx: &SessionContext, raw: &str) -> ManagedCommand {
     let sensitive_paths = infer_sensitive_paths(&lowered);
     let destination = infer_destination(&lowered);
     let data_classes = infer_data_classes(action_family, &sensitive_paths);
-    let argv = raw
-        .split_whitespace()
-        .map(str::to_string)
-        .collect::<Vec<_>>();
+    let mut parse_error = validate_command_shape(raw)
+        .err()
+        .map(|error| error.to_string());
+    let parsed_tokens = if parse_error.is_none() {
+        match shell_words::split(raw) {
+            Ok(tokens) => tokens,
+            Err(error) => {
+                parse_error = Some(format!("failed to parse protected command: {error}"));
+                Vec::new()
+            }
+        }
+    } else {
+        Vec::new()
+    };
+    let (env, argv) = if parse_error.is_none() {
+        split_leading_env_assignments(parsed_tokens)
+    } else {
+        (BTreeMap::new(), Vec::new())
+    };
+    if parse_error.is_none() && argv.is_empty() {
+        parse_error = Some("missing executable after environment assignments".to_string());
+    }
     let binary_path = argv
         .first()
         .cloned()
@@ -326,8 +346,10 @@ pub fn canonicalize_command(ctx: &SessionContext, raw: &str) -> ManagedCommand {
             command: Some(CanonicalCommand {
                 binary_path,
                 argv,
+                env,
                 interpreter_chain,
-                inline_eval: lowered.contains(" -c ") || lowered.contains(" -e "),
+                inline_eval: contains_inline_eval(&lowered),
+                parse_error,
                 cwd: ctx.cwd.clone(),
             }),
             sensitive_paths,
@@ -569,16 +591,70 @@ fn infer_data_classes(action_family: ActionFamily, sensitive_paths: &[String]) -
     classes
 }
 
+fn split_leading_env_assignments(argv: Vec<String>) -> (BTreeMap<String, String>, Vec<String>) {
+    let mut env = BTreeMap::new();
+    let mut first_command_index = 0;
+
+    for token in &argv {
+        if let Some((name, value)) = token.split_once('=') {
+            if is_valid_env_name(name) {
+                env.insert(name.to_string(), value.to_string());
+                first_command_index += 1;
+                continue;
+            }
+        }
+        break;
+    }
+
+    (env, argv.into_iter().skip(first_command_index).collect())
+}
+
+fn is_valid_env_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    matches!(chars.next(), Some(first) if first == '_' || first.is_ascii_alphabetic())
+        && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
+}
+
+fn contains_inline_eval(command: &str) -> bool {
+    command.contains(" -c ")
+        || command.contains(" -e ")
+        || command.starts_with("bash -c ")
+        || command.starts_with("bash -e ")
+        || command.starts_with("sh -c ")
+        || command.starts_with("sh -e ")
+        || command.starts_with("zsh -c ")
+        || command.starts_with("zsh -e ")
+        || command.starts_with("python -c ")
+        || command.starts_with("node -e ")
+}
+
 fn is_safe_process_request(request: &BehaviorRequest) -> bool {
     let Some(command) = &request.command else {
         return false;
     };
-    let raw = command.argv.join(" ");
-    raw == "pwd"
-        || raw == "git config --list"
-        || raw.contains("git ls-remote")
-        || raw == "true"
-        || raw == "echo safe"
+    if command.parse_error.is_some() || command.inline_eval {
+        return false;
+    }
+    match command.argv.as_slice() {
+        [pwd] if pwd == "pwd" => true,
+        [truth] if truth == "true" => true,
+        [echo, safe] if echo == "echo" && safe == "safe" => true,
+        [git, config, list] if git == "git" && config == "config" && list == "--list" => true,
+        [git, ls_remote, _target] if git == "git" && ls_remote == "ls-remote" => true,
+        _ => false,
+    }
+}
+
+fn validate_command_shape(raw: &str) -> Result<(), &'static str> {
+    if raw.contains('\n') || raw.contains('\r') {
+        return Err("multi-line commands are not allowed in protected mode");
+    }
+    for forbidden in ["&&", "||", ";", "|", ">>", "<<", ">", "<", "$(", "`"] {
+        if raw.contains(forbidden) {
+            return Err("shell metacharacters require broker-only handling");
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

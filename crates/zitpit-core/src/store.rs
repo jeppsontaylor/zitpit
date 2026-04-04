@@ -9,8 +9,9 @@ use uuid::Uuid;
 use crate::{
     manifest::ManifestCatalog,
     types::{
-        ArtifactKey, CacheEntry, CapturedRequest, EvidenceBundle, HourlyFeedRecord, LabRun,
-        ManifestRecord, NodeSession, PolicySnapshot, QuarantineJob,
+        ArtifactKey, ArtifactPolicyEvent, CacheEntry, CapturedRequest, EvidenceBundle,
+        HourlyFeedRecord, LabRun, LockdownOverride, ManifestRecord, NodeSession, PolicySnapshot,
+        QuarantineJob,
     },
 };
 
@@ -18,6 +19,8 @@ use crate::{
 pub enum StoreError {
     #[error("sqlx error: {0}")]
     Sqlx(#[from] sqlx::Error),
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
     #[error("not found")]
     NotFound,
 }
@@ -36,6 +39,7 @@ pub trait Store: Send + Sync {
         trace: crate::types::ProxyTrace,
     ) -> Result<(), StoreError>;
     async fn list_captured_requests(&self) -> Result<Vec<CapturedRequest>, StoreError>;
+    async fn prune_captured_requests(&self, keep_latest: usize) -> Result<(), StoreError>;
     async fn upsert_manifest_record(&self, record: ManifestRecord) -> Result<(), StoreError>;
     async fn list_manifest_records(&self) -> Result<Vec<ManifestRecord>, StoreError>;
     async fn put_cache_entry(&self, entry: CacheEntry) -> Result<(), StoreError>;
@@ -56,6 +60,16 @@ pub trait Store: Send + Sync {
     async fn list_evidence_bundles(&self) -> Result<Vec<EvidenceBundle>, StoreError>;
     async fn put_feed_record(&self, record: HourlyFeedRecord) -> Result<(), StoreError>;
     async fn list_feed_records(&self) -> Result<Vec<HourlyFeedRecord>, StoreError>;
+    async fn record_artifact_policy_event(
+        &self,
+        event: ArtifactPolicyEvent,
+    ) -> Result<(), StoreError>;
+    async fn list_artifact_policy_events(&self) -> Result<Vec<ArtifactPolicyEvent>, StoreError>;
+    async fn upsert_lockdown_override(
+        &self,
+        override_record: LockdownOverride,
+    ) -> Result<(), StoreError>;
+    async fn get_lockdown_override(&self) -> Result<Option<LockdownOverride>, StoreError>;
 }
 
 #[derive(Default)]
@@ -69,6 +83,8 @@ struct MemoryState {
     lab_runs: BTreeMap<Uuid, LabRun>,
     evidence_bundles: Vec<EvidenceBundle>,
     feed_records: Vec<HourlyFeedRecord>,
+    policy_events: Vec<ArtifactPolicyEvent>,
+    lockdown_override: Option<LockdownOverride>,
 }
 
 #[derive(Clone, Default)]
@@ -158,12 +174,26 @@ impl Store for MemoryStore {
         Ok(self.state.read().await.requests.clone())
     }
 
+    async fn prune_captured_requests(&self, keep_latest: usize) -> Result<(), StoreError> {
+        let mut state = self.state.write().await;
+        if keep_latest == 0 {
+            state.requests.clear();
+            return Ok(());
+        }
+        if state.requests.len() > keep_latest {
+            let drop_count = state.requests.len() - keep_latest;
+            state.requests.drain(0..drop_count);
+        }
+        Ok(())
+    }
+
     async fn upsert_manifest_record(&self, record: ManifestRecord) -> Result<(), StoreError> {
         let mut state = self.state.write().await;
         if let Some(existing) = state.manifest_records.iter_mut().find(|existing| {
             existing.source == record.source
                 && existing.requested_selector == record.requested_selector
                 && existing.ecosystem == record.ecosystem
+                && existing.selector_kind == record.selector_kind
         }) {
             *existing = record;
         } else {
@@ -262,6 +292,30 @@ impl Store for MemoryStore {
 
     async fn list_feed_records(&self) -> Result<Vec<HourlyFeedRecord>, StoreError> {
         Ok(self.state.read().await.feed_records.clone())
+    }
+
+    async fn record_artifact_policy_event(
+        &self,
+        event: ArtifactPolicyEvent,
+    ) -> Result<(), StoreError> {
+        self.state.write().await.policy_events.push(event);
+        Ok(())
+    }
+
+    async fn list_artifact_policy_events(&self) -> Result<Vec<ArtifactPolicyEvent>, StoreError> {
+        Ok(self.state.read().await.policy_events.clone())
+    }
+
+    async fn upsert_lockdown_override(
+        &self,
+        override_record: LockdownOverride,
+    ) -> Result<(), StoreError> {
+        self.state.write().await.lockdown_override = Some(override_record);
+        Ok(())
+    }
+
+    async fn get_lockdown_override(&self) -> Result<Option<LockdownOverride>, StoreError> {
+        Ok(self.state.read().await.lockdown_override.clone())
     }
 }
 
@@ -371,6 +425,22 @@ impl Store for PostgresStore {
             .into_iter()
             .map(|row| row.get::<Json<CapturedRequest>, _>("payload").0)
             .collect())
+    }
+
+    async fn prune_captured_requests(&self, keep_latest: usize) -> Result<(), StoreError> {
+        let keep_latest = keep_latest.max(0);
+        sqlx::query(
+            "delete from captured_requests
+             where request_id in (
+                 select request_id from captured_requests
+                 order by observed_at desc
+                 offset $1
+             )",
+        )
+        .bind(keep_latest as i64)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     async fn upsert_manifest_record(&self, record: ManifestRecord) -> Result<(), StoreError> {
@@ -529,6 +599,57 @@ impl Store for PostgresStore {
             .map(|row| row.get::<Json<HourlyFeedRecord>, _>("payload").0)
             .collect())
     }
+
+    async fn record_artifact_policy_event(
+        &self,
+        event: ArtifactPolicyEvent,
+    ) -> Result<(), StoreError> {
+        sqlx::query(
+            "insert into artifact_policy_events (event_id, artifact_key, created_at, payload) values ($1, $2, $3, $4)",
+        )
+        .bind(event.event_id)
+        .bind(quarantine_key(&event.artifact_key))
+        .bind(event.created_at)
+        .bind(Json(event))
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn list_artifact_policy_events(&self) -> Result<Vec<ArtifactPolicyEvent>, StoreError> {
+        let rows =
+            sqlx::query("select payload from artifact_policy_events order by created_at desc")
+                .fetch_all(&self.pool)
+                .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| row.get::<Json<ArtifactPolicyEvent>, _>("payload").0)
+            .collect())
+    }
+
+    async fn upsert_lockdown_override(
+        &self,
+        override_record: LockdownOverride,
+    ) -> Result<(), StoreError> {
+        sqlx::query(
+            "insert into lockdown_overrides (override_id, created_at, payload) values ($1, $2, $3)
+             on conflict (override_id) do update set created_at = excluded.created_at, payload = excluded.payload",
+        )
+        .bind(override_record.override_id)
+        .bind(override_record.created_at)
+        .bind(Json(override_record))
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn get_lockdown_override(&self) -> Result<Option<LockdownOverride>, StoreError> {
+        let row =
+            sqlx::query("select payload from lockdown_overrides order by created_at desc limit 1")
+                .fetch_optional(&self.pool)
+                .await?;
+        Ok(row.map(|row| row.get::<Json<LockdownOverride>, _>("payload").0))
+    }
 }
 
 #[derive(Clone)]
@@ -604,6 +725,7 @@ mod tests {
             created_at: Utc::now(),
             size_bytes: Some(42),
             digest_sha256: "deadbeef".to_string(),
+            content_digest_sha256: None,
         };
         store
             .put_cache_entry(entry.clone())
@@ -698,6 +820,7 @@ mod tests {
             created_at: Utc::now(),
             size_bytes: Some(128),
             digest_sha256: "deadbeef".to_string(),
+            content_digest_sha256: None,
         };
         let job = QuarantineJob {
             job_id: Uuid::new_v4(),

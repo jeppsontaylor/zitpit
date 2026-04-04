@@ -23,6 +23,8 @@ Before opening a PR, please make sure:
 
 [`docs/repo-layout.md`](docs/repo-layout.md) is the canonical repository-organization contract.
 [`scripts/check_repo_hygiene.sh`](scripts/check_repo_hygiene.sh) is the quick automated check for the same policy.
+`python3 scripts/check_claim_matrix.py`, `python3 scripts/check_publication_sync.py`, and `python3 scripts/check_markdown_links.py` enforce the public-claim and publication-surface contracts.
+[`docs/dependency-policy.md`](docs/dependency-policy.md) documents the dependency, advisory, and license policy enforced by CI.
 
 ## How to Contribute
 
@@ -38,7 +40,11 @@ We follow a standard GitHub flow:
    ```bash
    cargo clippy --workspace --all-targets -- -D warnings
    ```
-4. Submit a pull request.
+4. Run the dependency policy check:
+   ```bash
+   cargo deny check all
+   ```
+5. Submit a pull request.
 
 ### 3. Evidence and Benchmark Contributions
 If you can improve the benchmark matrix, add a proof family, or tighten a claim boundary, that is especially valuable.

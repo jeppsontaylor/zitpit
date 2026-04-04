@@ -1,9 +1,13 @@
-use std::{collections::BTreeMap, net::SocketAddr};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    net::{IpAddr, SocketAddr, ToSocketAddrs},
+};
 
 use axum::{
     Json, Router,
-    extract::{Path as AxumPath, State},
-    response::IntoResponse,
+    extract::{Path as AxumPath, Request as AxumRequest, State},
+    middleware::{self, Next},
+    response::{IntoResponse, Response as AxumResponse},
     routing::{get, post},
 };
 use bytes::Bytes;
@@ -14,6 +18,7 @@ use hyper_util::{
     rt::{TokioExecutor, TokioIo},
     server::conn::auto::Builder,
 };
+use ipnet::IpNet;
 use reqwest::Client;
 use tokio::{
     io::copy_bidirectional,
@@ -24,8 +29,9 @@ use tracing::{error, info, warn};
 use url::Url;
 use zitpit_core::{
     ArtifactBroker, ArtifactCoordinate, ArtifactKey, ClientVisibleOutcome, GitSmartHttpAdapter,
-    PolicyConfig, ProxyAction, ProxyTunnelDecision, RequestClassifier, RequestObservation,
-    SelectorHint, SelectorKind, StoreHandle, manifest::digest_for, sample_policy,
+    LockdownMode, LockdownOverride, PolicyConfig, PolicySnapshot, ProxyAction, ProxyTunnelDecision,
+    RequestClassifier, RequestObservation, SelectorHint, SelectorKind, StoreHandle,
+    manifest::digest_for, sample_policy,
 };
 use zitpit_flags::CommonFlags;
 
@@ -51,6 +57,22 @@ pub struct HealthResponse {
     pub status: &'static str,
     pub proxy_port: u16,
     pub admin_port: u16,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct EffectivePolicyResponse {
+    pub policy: PolicyConfig,
+    pub policy_version: String,
+    pub effective_mode: LockdownMode,
+    pub active_lockdown_override: Option<LockdownOverride>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct LockdownModeResponse {
+    pub status: &'static str,
+    pub policy_version: String,
+    pub effective_mode: LockdownMode,
+    pub active_lockdown_override: Option<LockdownOverride>,
 }
 
 pub async fn app_state_from_flags(flags: &CommonFlags) -> AppState {
@@ -84,14 +106,23 @@ pub async fn app_state_from_flags(flags: &CommonFlags) -> AppState {
 }
 
 pub fn build_admin_app(state: AppState) -> Router {
-    Router::new()
-        .route("/healthz", get(healthz))
+    let protected_state = state.clone();
+    let mut protected = Router::new()
         .route("/api/v1/policy/default", get(get_policy))
         .route("/api/v1/policy/lockdown-mode", post(set_lockdown_mode))
         .route("/api/v1/classify", post(classify))
-        .route("/api/v1/captured-requests", get(captured_requests))
-        .route("/api/v1/fixtures/npm-pending", get(sample_npm_pending))
-        .route("/api/v1/fixtures/egress-sink/{case_id}", post(egress_sink))
+        .route("/api/v1/captured-requests", get(captured_requests));
+    if state.policy.demo_mode {
+        protected = protected
+            .route("/api/v1/fixtures/npm-pending", get(sample_npm_pending))
+            .route("/api/v1/fixtures/egress-sink/{case_id}", post(egress_sink));
+    }
+    Router::new()
+        .route("/healthz", get(healthz))
+        .merge(protected.route_layer(middleware::from_fn_with_state(
+            protected_state,
+            require_admin_bearer_token,
+        )))
         .with_state(state)
         .layer(TraceLayer::new_for_http())
 }
@@ -100,8 +131,10 @@ pub async fn run(state: AppState) {
     let admin_state = state.clone();
     let admin_app = build_admin_app(admin_state);
 
-    let admin_addr = SocketAddr::from(([0, 0, 0, 0], state.policy.admin_port));
-    let proxy_addr = SocketAddr::from(([0, 0, 0, 0], state.policy.proxy_port));
+    let admin_addr = socket_addr(&state.policy.admin_bind_addr, state.policy.admin_port)
+        .expect("resolve admin bind address");
+    let proxy_addr = socket_addr(&state.policy.proxy_bind_addr, state.policy.proxy_port)
+        .expect("resolve proxy bind address");
 
     let admin = async move {
         info!("zitpit-proxy admin API listening on {admin_addr}");
@@ -181,7 +214,7 @@ async fn handle_connect(
         path: String::new(),
         method: "CONNECT".to_string(),
         user_agent: header_value(req.headers(), "user-agent"),
-        headers: normalize_headers(req.headers()),
+        headers: normalize_headers(req.headers(), &state.policy),
         selector_hint: None,
     };
     let decision = match state.broker.decide(observation.clone(), None).await {
@@ -311,7 +344,7 @@ async fn handle_forward(
             .unwrap_or_else(|| uri.path().to_string()),
         method: method.to_string(),
         user_agent: header_value(req.headers(), "user-agent"),
-        headers: normalize_headers(req.headers()),
+        headers: normalize_headers(req.headers(), &state.policy),
         selector_hint: maybe_selector_hint(&url),
     };
 
@@ -493,17 +526,22 @@ async fn handle_forward(
             request_id: uuid::Uuid::new_v4(),
             session_id: None,
             transfer_kind: infer_transfer_kind(&method, &url),
-            destination_zone: infer_destination_zone(request_url.as_ref(), &observation.authority),
+            destination_zone: infer_destination_zone(
+                request_url.as_ref(),
+                &observation.authority,
+                &state.policy,
+            ),
             target_url: Some(url.clone()),
             encoding: verdict.encoding,
             payload_size: Some(body_bytes.len()),
             verdict,
             regulated_transport_approved: false,
+            policy_revision: load_policy_snapshot(&state).await.version,
         };
 
         let decision_outcome = zitpit_core::evaluate_egress_with_mode(
             &egress_request,
-            *state.lockdown_mode.read().unwrap(),
+            effective_lockdown_mode(&state).await,
         );
         trace = trace.with_event(
             zitpit_core::ProxyTraceKind::DlpScanned,
@@ -621,7 +659,7 @@ async fn handle_forward(
 
     let mut upstream = state.http_client.request(method.clone(), &url);
     for (name, value) in &request_headers {
-        if name == HOST || name.as_str().eq_ignore_ascii_case("proxy-connection") {
+        if is_hop_by_hop_header(name.as_str()) || name == HOST {
             continue;
         }
         upstream = upstream.header(name, value);
@@ -669,7 +707,41 @@ async fn handle_forward(
 
     let status = upstream_response.status();
     let headers = upstream_response.headers().clone();
-    let response_bytes = upstream_response.bytes().await.unwrap_or_default();
+    let response_bytes = match upstream_response.bytes().await {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            let trace = trace
+                .with_event(
+                    zitpit_core::ProxyTraceKind::UpstreamError,
+                    format!("failed to read upstream body: {error}"),
+                )
+                .with_event(
+                    zitpit_core::ProxyTraceKind::ResponseSent,
+                    "upstream body read failure sent to client",
+                )
+                .with_completion("upstream body read failure");
+            let _ = persist_request_result(
+                &state,
+                &observation,
+                &decision,
+                artifact_key,
+                egress_decision,
+                trace,
+                StatusCode::BAD_GATEWAY,
+                ClientVisibleOutcome::UpstreamError,
+                Some(body_bytes.len() as u64),
+                None,
+            )
+            .await;
+            return Ok(json_response(
+                StatusCode::BAD_GATEWAY,
+                serde_json::json!({
+                    "error": format!("failed to read upstream body: {error}"),
+                    "url": url,
+                }),
+            ));
+        }
+    };
     let trace = trace
         .with_event(
             zitpit_core::ProxyTraceKind::RoutedUpstream,
@@ -696,6 +768,9 @@ async fn handle_forward(
 
     let mut response = Response::builder().status(status);
     for (name, value) in &headers {
+        if is_hop_by_hop_header(name.as_str()) {
+            continue;
+        }
         response = response.header(name, value);
     }
     Ok(response
@@ -734,6 +809,11 @@ async fn persist_request_result(
             egress_decision,
             trace,
         })
+        .await?;
+    state
+        .store
+        .0
+        .prune_captured_requests(state.policy.captured_request_retention)
         .await
 }
 
@@ -760,8 +840,8 @@ fn git_coordinate_from_url(url: &Url) -> Option<ArtifactCoordinate> {
     Some(ArtifactCoordinate {
         ecosystem: zitpit_core::Ecosystem::Git,
         source,
-        requested_selector: "git-smart-http".to_string(),
-        selector_kind: SelectorKind::Floating,
+        requested_selector: "__git_smart_http_request__".to_string(),
+        selector_kind: SelectorKind::Unspecified,
     })
 }
 
@@ -773,14 +853,23 @@ fn json_response(status: StatusCode, payload: serde_json::Value) -> Response<Ful
         .expect("json response")
 }
 
-fn normalize_headers(headers: &http::HeaderMap) -> BTreeMap<String, String> {
+fn normalize_headers(headers: &http::HeaderMap, policy: &PolicyConfig) -> BTreeMap<String, String> {
+    let allowlist = policy
+        .captured_header_allowlist
+        .iter()
+        .map(|header| header.to_ascii_lowercase())
+        .collect::<BTreeSet<_>>();
     headers
         .iter()
         .filter_map(|(name, value)| {
+            let normalized = name.as_str().to_ascii_lowercase();
+            if !allowlist.contains(&normalized) {
+                return None;
+            }
             value
                 .to_str()
                 .ok()
-                .map(|value| (name.as_str().to_string(), value.to_string()))
+                .map(|value| (normalized, value.to_string()))
         })
         .collect()
 }
@@ -827,9 +916,7 @@ async fn healthz(State(state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_policy(State(state): State<AppState>) -> impl IntoResponse {
-    let mut current_policy = state.policy.clone();
-    current_policy.lockdown_mode = *state.lockdown_mode.read().unwrap();
-    Json(current_policy)
+    Json(effective_policy_response(&state).await)
 }
 
 #[derive(serde::Deserialize)]
@@ -844,6 +931,8 @@ async fn set_lockdown_mode(
     State(state): State<AppState>,
     Json(payload): Json<LockdownModeRequest>,
 ) -> impl IntoResponse {
+    let now = chrono::Utc::now();
+    let mut snapshot = load_policy_snapshot(&state).await;
     if payload.mode.is_break_glass() {
         if payload.requested_by.is_none()
             || payload.reason.is_none()
@@ -855,11 +944,15 @@ async fn set_lockdown_mode(
             );
         }
         let breakglass = zitpit_core::LockdownOverride {
+            override_id: uuid::Uuid::new_v4(),
             mode: payload.mode,
             requested_by: payload.requested_by.unwrap(),
             reason: payload.reason.unwrap(),
             expires_at: payload.expires_at.unwrap(),
             evidence_id: uuid::Uuid::new_v4(),
+            created_at: now,
+            revoked_at: None,
+            policy_revision: snapshot.version.clone(),
         };
         tracing::info!(
             "Admin posture overridden to BreakGlass by {} until {} for: {}",
@@ -867,14 +960,40 @@ async fn set_lockdown_mode(
             breakglass.expires_at,
             breakglass.reason
         );
+        if let Err(error) = state.store.0.upsert_lockdown_override(breakglass).await {
+            return json_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                serde_json::json!({ "error": error.to_string() }),
+            );
+        }
     } else {
         tracing::info!("Admin posture changed to {:?}", payload.mode);
+        if let Ok(Some(mut existing)) = state.store.0.get_lockdown_override().await {
+            if existing.is_active_at(now) {
+                existing.revoked_at = Some(now);
+                if let Err(error) = state.store.0.upsert_lockdown_override(existing).await {
+                    return json_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        serde_json::json!({ "error": error.to_string() }),
+                    );
+                }
+            }
+        }
+        *state.lockdown_mode.write().unwrap() = payload.mode;
+        snapshot.config.lockdown_mode = payload.mode;
+        snapshot.version = format!("{}-{}", snapshot.version, now.timestamp());
+        snapshot.generated_at = now;
+        if let Err(error) = state.store.0.set_policy_snapshot(snapshot.clone()).await {
+            return json_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                serde_json::json!({ "error": error.to_string() }),
+            );
+        }
     }
-
-    *state.lockdown_mode.write().unwrap() = payload.mode;
+    let response = lockdown_mode_response(&state).await;
     json_response(
         StatusCode::OK,
-        serde_json::json!({ "status": "ok", "mode": payload.mode }),
+        serde_json::to_value(response).unwrap_or_else(|_| serde_json::json!({ "status": "error" })),
     )
 }
 
@@ -883,6 +1002,13 @@ async fn classify(Json(observation): Json<RequestObservation>) -> impl IntoRespo
 }
 
 async fn captured_requests(State(state): State<AppState>) -> impl IntoResponse {
+    if !state.policy.demo_mode {
+        return json_response(
+            StatusCode::NOT_FOUND,
+            serde_json::json!({ "error": "captured request inspection is disabled outside demo mode" }),
+        )
+        .into_response();
+    }
     Json(
         state
             .store
@@ -891,6 +1017,7 @@ async fn captured_requests(State(state): State<AppState>) -> impl IntoResponse {
             .await
             .unwrap_or_default(),
     )
+    .into_response()
 }
 
 async fn egress_sink(AxumPath(case_id): AxumPath<String>, body: Bytes) -> impl IntoResponse {
@@ -938,6 +1065,7 @@ async fn sample_npm_pending(State(state): State<AppState>) -> impl IntoResponse 
 fn infer_destination_zone(
     request_url: Option<&Url>,
     fallback_authority: &str,
+    policy: &PolicyConfig,
 ) -> zitpit_core::DestinationTrustZone {
     let host = request_url
         .and_then(|url| url.host_str())
@@ -957,18 +1085,9 @@ fn infer_destination_zone(
         "docs.anthropic.com" | "platform.claude.com" | "platform.openai.com" => {
             zitpit_core::DestinationTrustZone::ApprovedDocs
         }
-        "localhost" | "127.0.0.1" | "zitpit-gateway" | "zitpit-manifest" | "zitpit-lab"
-        | "zitpit-watch" | "zitpit-node-agent" => zitpit_core::DestinationTrustZone::ZitpitInternal,
-        _ if host.starts_with("10.")
-            || host.starts_with("192.168.")
-            || host.starts_with("172.16.")
-            || host.starts_with("172.17.")
-            || host.starts_with("172.18.")
-            || host.ends_with(".internal")
-            || host.ends_with(".cluster.local") =>
-        {
-            zitpit_core::DestinationTrustZone::ZitpitInternal
-        }
+        "localhost" | "zitpit-gateway" | "zitpit-manifest" | "zitpit-lab" | "zitpit-watch"
+        | "zitpit-node-agent" => zitpit_core::DestinationTrustZone::ZitpitInternal,
+        _ if is_internal_host(&host, policy) => zitpit_core::DestinationTrustZone::ZitpitInternal,
         _ => zitpit_core::DestinationTrustZone::UnknownExternal,
     }
 }
@@ -976,11 +1095,140 @@ fn infer_destination_zone(
 fn infer_transfer_kind(method: &Method, url: &str) -> zitpit_core::TransferKind {
     if url.contains("git-receive-pack") {
         zitpit_core::TransferKind::GitPush
+    } else if url.contains("git-upload-pack") || url.contains("/info/refs?service=git-upload-pack")
+    {
+        zitpit_core::TransferKind::GitFetch
     } else if url.contains("/releases") || url.contains("upload") {
         zitpit_core::TransferKind::ReleaseUpload
+    } else if matches!(*method, Method::GET | Method::HEAD) {
+        zitpit_core::TransferKind::HttpRead
     } else if matches!(*method, Method::POST | Method::PUT | Method::PATCH) {
         zitpit_core::TransferKind::HttpReq
     } else {
         zitpit_core::TransferKind::RawTcp
+    }
+}
+
+fn is_internal_host(host: &str, policy: &PolicyConfig) -> bool {
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return policy.internal_cidrs.iter().any(|cidr| {
+            cidr.parse::<IpNet>()
+                .map(|network| network.contains(&ip))
+                .unwrap_or(false)
+        });
+    }
+
+    policy
+        .internal_host_suffixes
+        .iter()
+        .any(|suffix| host.ends_with(suffix))
+}
+
+fn is_hop_by_hop_header(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "connection"
+            | "keep-alive"
+            | "proxy-authenticate"
+            | "proxy-authorization"
+            | "proxy-connection"
+            | "te"
+            | "trailer"
+            | "transfer-encoding"
+            | "upgrade"
+    )
+}
+
+fn socket_addr(host: &str, port: u16) -> std::io::Result<SocketAddr> {
+    format!("{host}:{port}")
+        .to_socket_addrs()?
+        .next()
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::AddrNotAvailable, host))
+}
+
+async fn require_admin_bearer_token(
+    State(state): State<AppState>,
+    request: AxumRequest,
+    next: Next,
+) -> AxumResponse {
+    if has_valid_bearer_token(request.headers(), &state.policy.admin_auth_token) {
+        next.run(request).await
+    } else {
+        json_response(
+            StatusCode::UNAUTHORIZED,
+            serde_json::json!({ "error": "missing or invalid bearer token" }),
+        )
+        .into_response()
+    }
+}
+
+fn has_valid_bearer_token(headers: &http::HeaderMap, expected: &str) -> bool {
+    headers
+        .get(http::header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .map(|token| token == expected)
+        .unwrap_or(false)
+}
+
+async fn load_policy_snapshot(state: &AppState) -> PolicySnapshot {
+    state
+        .store
+        .0
+        .get_policy_snapshot()
+        .await
+        .unwrap_or(None)
+        .unwrap_or(PolicySnapshot {
+            version: "v1".to_string(),
+            generated_at: chrono::Utc::now(),
+            config: sample_policy(),
+        })
+}
+
+async fn active_lockdown_override(state: &AppState) -> Option<LockdownOverride> {
+    let now = chrono::Utc::now();
+    let mut override_record = state.store.0.get_lockdown_override().await.ok().flatten()?;
+    if override_record.revoked_at.is_none() && override_record.expires_at <= now {
+        override_record.revoked_at = Some(now);
+        let _ = state
+            .store
+            .0
+            .upsert_lockdown_override(override_record.clone())
+            .await;
+        return None;
+    }
+    override_record.is_active_at(now).then_some(override_record)
+}
+
+async fn effective_lockdown_mode(state: &AppState) -> LockdownMode {
+    active_lockdown_override(state)
+        .await
+        .map(|override_record| override_record.mode)
+        .unwrap_or(*state.lockdown_mode.read().unwrap())
+}
+
+async fn effective_policy_response(state: &AppState) -> EffectivePolicyResponse {
+    let snapshot = load_policy_snapshot(state).await;
+    let active_override = active_lockdown_override(state).await;
+    let mut policy = snapshot.config.clone();
+    policy.lockdown_mode = active_override
+        .as_ref()
+        .map(|override_record| override_record.mode)
+        .unwrap_or(*state.lockdown_mode.read().unwrap());
+    EffectivePolicyResponse {
+        effective_mode: policy.lockdown_mode,
+        policy,
+        policy_version: snapshot.version,
+        active_lockdown_override: active_override,
+    }
+}
+
+async fn lockdown_mode_response(state: &AppState) -> LockdownModeResponse {
+    let effective = effective_policy_response(state).await;
+    LockdownModeResponse {
+        status: "ok",
+        policy_version: effective.policy_version,
+        effective_mode: effective.effective_mode,
+        active_lockdown_override: effective.active_lockdown_override,
     }
 }

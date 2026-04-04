@@ -18,7 +18,7 @@ ZitPit is designed around:
 - freshness and revocation semantics
 - benchmark-backed claims
 
-The bootstrap path should verify the ZitPit release before use. If any bootstrap check fails, do not run the software.
+The current public bootstrap helper is demo scaffolding, not the release-verification path. See [`docs/release-verification.md`](docs/release-verification.md) for published artifact verification, [`docs/hash-verification.md`](docs/hash-verification.md) for the demo helper's limited role, and [`docs/deployment-hardening.md`](docs/deployment-hardening.md) for deployment posture guidance.
 
 ## Mirage Lab Safety
 
@@ -28,4 +28,3 @@ Mirage Lab is a quarantined evidence environment, not a trust oracle.
 - real production secrets do not belong in the lab
 - sinkholed egress is expected
 - public claims should rely on benchmarks, not on hidden behavior
-

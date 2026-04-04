@@ -6,7 +6,7 @@ fail() {
   exit 1
 }
 
-scratch_hits="$(find . -maxdepth 2 \( -name 'good*.txt' -o -name 'mean*.txt' -o -name 'a*.txt' -o -name 's*.txt' -o -name 'wr*.txt' -o -name 'launch*.txt' -o -name 'tmp.logs*' -o -name 'dummy.cfg' -o -name '.DS_Store' \) | sort)"
+scratch_hits="$(find . -maxdepth 2 \( -name 'good*.txt' -o -name 'mean*.txt' -o -name 'clean*.txt' -o -name 'a*.txt' -o -name 's*.txt' -o -name 'wr*.txt' -o -name 'launch*.txt' -o -name 'tmp.logs*' -o -name 'dummy.cfg' -o -name '.DS_Store' \) | sort)"
 if [[ -n "$scratch_hits" ]]; then
   printf '%s\n' "$scratch_hits" >&2
   fail "scratch files or .DS_Store are still present"
@@ -20,6 +20,10 @@ fi
 
 if [[ ! -f paper/zitpit-v1.0-paper.pdf ]]; then
   fail "canonical paper PDF is missing"
+fi
+
+if [[ ! -f docs/claim-matrix.yaml ]]; then
+  fail "claim matrix is missing"
 fi
 
 echo "repo hygiene check passed"

@@ -315,6 +315,7 @@ mod tests {
                     created_at: older,
                     size_bytes: Some(64),
                     digest_sha256: "a".repeat(64),
+                    content_digest_sha256: None,
                 }),
             },
             QuarantineJob {
@@ -331,6 +332,7 @@ mod tests {
                     created_at: newer,
                     size_bytes: Some(64),
                     digest_sha256: "b".repeat(64),
+                    content_digest_sha256: None,
                 }),
             },
             QuarantineJob {
@@ -347,6 +349,7 @@ mod tests {
                     created_at: newer,
                     size_bytes: Some(128),
                     digest_sha256: "c".repeat(64),
+                    content_digest_sha256: None,
                 }),
             },
         ];

@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
 
-# ZitPit: Strict Bootstrap Verification Script
-# This script ensures that your local code matches the published trust anchors.
+# ZitPit demo bootstrap helper
+# This script demonstrates the shape of a repository-hash bootstrap check.
+# It is not a production-grade release verification path.
 
 set -euo pipefail
 
 # --- Configuration ---
-ZITPIT_REMOTE_MIRROR="https://trust.zitpit.dev/latest/hash" # Placeholder
+ZITPIT_REMOTE_MIRROR="https://trust.zitpit.dev/latest/hash" # demo placeholder
 GIT_COMMIT_IDENTITY="$(git rev-parse HEAD)"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}ZitPit: Performing Zero-Surprise Verification...${NC}"
+echo -e "${BLUE}ZitPit: Demo bootstrap verification helper${NC}"
+echo -e "${RED}NOTE:${NC} this script is demo scaffolding, not a finished release-verification path."
 
 # --- Step 1: Compute Local Hash ---
 echo -e "1. Computing local repository hash..."
@@ -28,8 +30,9 @@ echo -e "   Commit SHA:  ${GIT_COMMIT_IDENTITY}"
 
 # --- Step 3: Verify against Remote Mirror ---
 echo -e "3. Fetching published hash from trust mirror..."
-# For the demo, we'll mock the remote hash as the local hash to show a pass.
-# In production, this would be: REMOTE_HASH=$(curl -sL $ZITPIT_REMOTE_MIRROR)
+# For the demo, we intentionally mock the remote hash as the local hash to show
+# the shape of the comparison. A real release path would fetch signed metadata
+# and verify provenance, freshness, and revocation information.
 REMOTE_HASH="${LOCAL_HASH}" # MOCK FOR DEMO
 echo -e "   Mirror Hash: ${REMOTE_HASH}"
 
@@ -37,13 +40,13 @@ echo -e "   Mirror Hash: ${REMOTE_HASH}"
 echo -e "\n${BLUE}--- Verification Results ---${NC}"
 
 if [ "$LOCAL_HASH" == "$REMOTE_HASH" ]; then
-    echo -e "${GREEN}SUCCESS: Local hash matches the published trust anchor.${NC}"
-    echo -e "${GREEN}ZitPit is clean. You are clear to proceed.${NC}"
+    echo -e "${GREEN}DEMO PASS:${NC} Local hash matches the mocked remote comparison."
+    echo -e "${GREEN}This confirms the demo helper ran, not that a full trust chain has been verified.${NC}"
     exit 0
 else
-    echo -e "${RED}FAILURE: Hash mismatch detected!${NC}"
+    echo -e "${RED}DEMO FAILURE: Hash mismatch detected!${NC}"
     echo -e "${RED}Local Hash:  $LOCAL_HASH${NC}"
     echo -e "${RED}Remote Hash: $REMOTE_HASH${NC}"
-    echo -e "${RED}DO NOT RUN THIS SOFTWARE. Your local copy may be compromised.${NC}"
+    echo -e "${RED}Treat this as a failed demo check and investigate before proceeding.${NC}"
     exit 1
 fi

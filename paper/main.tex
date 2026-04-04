@@ -136,7 +136,7 @@ Repo-open state is in scope because opening a project can be execution-relevant.
 
 \subsection{Trust Plane, Cache, and Control-Plane Compromise}
 
-The control plane becomes part of the trusted computing base. Cache poisoning, policy-store compromise, signing-key compromise, parser weakness, and stale trust roots are all relevant risks. \product{} therefore treats digest equality as immutable identity, not full trust, and positions provenance, freshness, expiry, revocation, and operator-visible evidence as separate obligations \cite{tufDocs2026,tufPaper2016,sigstoreDocs2026,slsaDocs2026}
+The control plane becomes part of the trusted computing base. Cache poisoning, policy-store compromise, signing-key compromise, parser weakness, and stale trust roots are all relevant risks. \product{} therefore treats resolved immutable identity, compatibility fingerprints, and any separately computed content digests as distinct inputs rather than collapsing them into one trust bit. Provenance, freshness, expiry, revocation, and operator-visible evidence remain separate obligations \cite{tufDocs2026,tufPaper2016,sigstoreDocs2026,slsaDocs2026}
 
 \subsection{Operator Burden and Availability}
 
@@ -162,6 +162,8 @@ The current implementation is strongest on Git-path intake, protected-session me
 The admission decision is durable. Each artifact policy event records the requested selector, resolved immutable identity, provenance result, verdict, evidence pointer, context, and expiry or revocation state. That durable event is the missing join key for recall, audit, and later incident reconstruction.
 
 \paperbox{\textbf{Policy-event schema.} selector; resolved immutable identity; provenance result; verdict; evidence pointer; context; expiry and revocation state. This is the shared contract between admission, evidence, and later recall.}
+
+\paperbox{\textbf{Example event.} selector=\texttt{acme/tool@\{pre-resolution\}}; resolved immutable identity=\texttt{f3c1...}; provenance result=\texttt{verified}; verdict=\texttt{RUN\_DEV}; evidence pointer=\texttt{report://quarantine}; context=\texttt{code\_intake/protected\_host}; expiry and revocation recorded at decision time.}
 
 \subsection{Capability-Scoped Verdicts}
 
@@ -203,6 +205,10 @@ Mirage Lab is useful because it improves ordering, evidence production, and oper
 \section{Preliminary Evaluation}
 
 The current evaluation is split into two proof obligations: deployability and coverage honesty.
+
+\subsection{Benchmark Methodology}
+
+The public timing harness now mirrors the actual upstream repository at the resolved immutable target before timing the approved path. The harness validates that the seeded managed mirror matches the claimed upstream HEAD, and it fails report generation if the managed response diverges from the expected immutable target. The mutable working outputs remain under \texttt{docs/benchmarks/latest.*}, but the paper cites a frozen benchmark snapshot artifact under \texttt{docs/benchmarks/snapshots/} so the evidence reference is not a moving ``latest'' pointer \cite{zitpitBench2026}.
 
 \subsection{Deployability: Can the Safe Path Stay Fast?}
 

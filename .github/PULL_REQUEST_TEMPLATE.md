@@ -11,11 +11,13 @@ Link to any related issues (e.g. `Fixes #000`).
 - [ ] Security Improvement (enhances isolation or detection)
 
 ## Checklist
-- [ ] I have read the [CONTRIBUTING.md](CONTRIBUTING.md) guide.
+- [ ] I have read the [CONTRIBUTING.md](../CONTRIBUTING.md) guide.
 - [ ] My code follows the project's style and idiomatic Rust.
 - [ ] I have run `cargo fmt` and `cargo clippy`.
+- [ ] I have run `cargo deny check all` if dependencies or licenses changed.
 - [ ] I have included tests for my changes.
 - [ ] I have signed off my commits (DCO).
+- [ ] GitHub Actions references remain pinned by full SHA.
 
 ## Screenshots/Evidence
 If applicable, include screenshots or TUI logs showing the change in action.

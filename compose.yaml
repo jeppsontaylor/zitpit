@@ -1,3 +1,5 @@
+# Local demo stack for research and CI smoke flows.
+# Not a hardened deployment profile. See docs/deployment-hardening.md.
 services:
   postgres:
     image: postgres:16-alpine

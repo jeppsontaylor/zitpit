@@ -1,42 +1,49 @@
 # Hash Verification Guide
 
-At ZitPit, we're dedicated to a **Zero-Surprise** supply chain. This document explains our strict verification process and why it matters.
+This document is intentionally conservative.
 
-## The Problem with Traditional CI
+ZitPit does **not** yet ship a finished public release-verification path that would justify strong bootstrap-trust claims in the main quickstart. The current shell helper is now treated as demo scaffolding, not as a complete trust story.
 
-Standard CI pipelines pull tags or branches (e.g., `v1.0.0`). If an attacker compromises the repository, they can "re-tag" a release with malicious code. If your build system pulls that tag, you are compromised.
+## Current Status
 
-## The ZitPit Solution: Bootstrap Integrity, Not Final Trust
+- `scripts/demo_verify_hash.sh` is a demo helper
+- it is **not** a substitute for signed releases, provenance, transparency, freshness, or revocation
+- it is **not** the primary public verification path for launch
 
-We use hashes as a bootstrap integrity check, but not as the final trust model. ZitPit's runtime trust plane depends on provenance, freshness, and revocation in addition to digest equality.
+The public quickstart now focuses on the reproducible demo/CI path instead.
 
-### 1. **Commit Identity**
-We don't just pull `main`. We publish the exact Git commit SHA that represents a stable release.
+## Why The Old Script Was Demoted
 
-### 2. **SHA-256 Checksums**
-We compute the SHA-256 hash of the repository checkout at that commit. This is a strong sanity check for the checkout itself, but it is only one input to the broader trust model.
+The earlier helper compared a locally computed hash against placeholder or mocked remote data. That is useful for demonstrating the shape of a bootstrap-integrity check, but it is not strong enough to present as real release verification.
 
-### 3. **The Multi-Point Check**
-Before you install or update ZitPit, you should run our verification script:
-`sh scripts/verify_hash.sh`
+Security reviewers will reasonably ask for:
 
-This script performs the following checks:
-*   **Local Hash**: Computes the SHA-256 of your local files.
-*   **Git Hash**: Compares it against the identity in the Git history.
-*   **Mirror 1 (GitHub)**: Fetches the published checksum from GitHub.
-*   **Mirror 2 (ZitPit Trust Server)**: Fetches the published checksum from an independent, non-GitHub server (`trust.zitpit.dev`).
+- signed release metadata
+- immutable release artifacts
+- provenance and build attestations
+- transparency or audit logging
+- key rotation and revocation semantics
+- freshness and anti-rollback protections
 
-**If the bootstrap check fails, the script exits with an error.**
+Those concerns are better served by composing established systems such as TUF, Sigstore, in-toto, SLSA provenance, and GitHub artifact attestations than by overclaiming around a shell script.
 
-## How to Manual Verify
+## Demo Helper
 
-If you prefer to verify manually, follow these steps:
+If you want to inspect the current scaffold anyway:
 
-1.  Compute your local hash:
-    ```bash
-    find . -type f -not -path '*/.*' -exec sha256sum {} + | sort | sha256sum
-    ```
-2.  Check the `releases/hashes.txt` file in the repository.
-3.  Cross-reference with the hash published at `https://trust.zitpit.dev/latest/hash`.
+```bash
+sh scripts/demo_verify_hash.sh
+```
 
-For runtime trust decisions, see [trust-model.md](trust-model.md) and [BENCHMARKS.md](../BENCHMARKS.md).
+Treat its output as a local demo of the shape of a bootstrap check, not as production-grade release verification.
+
+## Launch Guidance
+
+For public launch readiness, the trustworthy path is:
+
+1. use the published source tree and canonical paper bundle
+2. inspect [`CLAIMS.md`](../CLAIMS.md) and [`BENCHMARKS.md`](../BENCHMARKS.md)
+3. run the same demo flow CI runs
+4. verify published artifacts with [`release-verification.md`](release-verification.md)
+
+For runtime trust decisions, see [trust-model.md](trust-model.md), [deployment-hardening.md](deployment-hardening.md), and [BENCHMARKS.md](../BENCHMARKS.md).

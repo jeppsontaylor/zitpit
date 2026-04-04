@@ -276,6 +276,7 @@ impl BattleRunner {
                     created_at: Utc::now(),
                     size_bytes: Some(total_file_bytes(&pack.root_dir, &pack.pack.files)?),
                     digest_sha256: pack_digest(pack)?,
+                    content_digest_sha256: None,
                 };
                 store.0.put_cache_entry(cache_entry.clone()).await?;
                 let job = QuarantineJob {

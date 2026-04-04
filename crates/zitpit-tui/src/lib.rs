@@ -1524,6 +1524,7 @@ mod tests {
                     created_at: downloaded_at,
                     size_bytes: Some(4_194_304),
                     digest_sha256: "9".repeat(64),
+                    content_digest_sha256: None,
                 }),
             }],
             lab_runs: vec![LabRun {

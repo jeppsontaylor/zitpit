@@ -1,0 +1,134 @@
+{
+  "canonical_description": "consumer-side software admission control layer for agentic development",
+  "thesis": "First-seen external artifacts must earn execution rights under durable policy before they affect a protected host.",
+  "status_ladder": [
+    "Implemented",
+    "Partial",
+    "Planned",
+    "Unsupported"
+  ],
+  "claims": [
+    {
+      "id": "git_smart_http_intake",
+      "status": "Implemented",
+      "supported_claim": "Approved immutable Git intake can stay faster than unmanaged public fetch.",
+      "public_evidence": [
+        {
+          "path": "BENCHMARKS.md",
+          "label": "Benchmark family"
+        },
+        {
+          "path": "docs/benchmarks/latest.md",
+          "label": "Latest working benchmark output"
+        },
+        {
+          "path": "docs/benchmarks/snapshots/2026-04-04-prelaunch.md",
+          "label": "Frozen prelaunch benchmark snapshot"
+        }
+      ],
+      "code_paths": [
+        "xtask/src/bench.rs",
+        "crates/zitpit-core/src/gitlane.rs"
+      ],
+      "demo_command": "cargo test -q -p zitpit-core approved_git_source_promotes_hot_cache_after_disk_hit -- --nocapture",
+      "not_yet_proven": [
+        "git_follow_on_intake",
+        "submodule_and_lfs_closure",
+        "full_clone_closure"
+      ]
+    },
+    {
+      "id": "brokered_shell_enforcement",
+      "status": "Implemented",
+      "supported_claim": "Protected sessions can deny selected high-value command families before execution.",
+      "public_evidence": [
+        {
+          "path": "BENCHMARKS.md",
+          "label": "Benchmark family"
+        },
+        {
+          "path": "docs/quickstart.md",
+          "label": "Demo path"
+        }
+      ],
+      "code_paths": [
+        "crates/zitpit-core/src/behavior.rs",
+        "crates/zitpit-sessiond/src/lib.rs"
+      ],
+      "demo_command": "cargo run -p xtask -- battle shell",
+      "not_yet_proven": [
+        "host_universal_application_control",
+        "arbitrary_shell_semantics"
+      ]
+    },
+    {
+      "id": "governed_egress_dlp",
+      "status": "Implemented",
+      "supported_claim": "Governed egress can block selected sensitive outbound data before transmission.",
+      "public_evidence": [
+        {
+          "path": "BENCHMARKS.md",
+          "label": "Benchmark family"
+        },
+        {
+          "path": "docs/deployment-hardening.md",
+          "label": "Current bounded DLP limits"
+        }
+      ],
+      "code_paths": [
+        "crates/zitpit-core/src/dlp.rs",
+        "crates/zitpit-core/src/egress.rs",
+        "crates/zitpit-gateway/src/lib.rs"
+      ],
+      "demo_command": "cargo run -p xtask -- battle egress",
+      "not_yet_proven": [
+        "raw_socket_closure",
+        "unmanaged_egress_paths"
+      ]
+    },
+    {
+      "id": "cargo_build_time_execution",
+      "status": "Partial",
+      "supported_claim": "Build-time execution can be modeled as a separate capability boundary.",
+      "public_evidence": [
+        {
+          "path": "BENCHMARKS.md",
+          "label": "Benchmark family"
+        }
+      ],
+      "code_paths": [
+        "BENCHMARKS.md"
+      ],
+      "demo_command": "cargo run -p xtask -- battle controls",
+      "not_yet_proven": [
+        "cargo_native_mediation",
+        "full_build_graph_closure"
+      ]
+    },
+    {
+      "id": "repo_open_execution_surface",
+      "status": "Planned",
+      "supported_claim": "Repo-open state is in scope and should be policy-gated before host execution.",
+      "public_evidence": [
+        {
+          "path": "BENCHMARKS.md",
+          "label": "Benchmark family"
+        },
+        {
+          "path": "docs/threat-model.md",
+          "label": "Threat model"
+        }
+      ],
+      "code_paths": [
+        "docs/threat-model.md",
+        "docs/policy-model.md"
+      ],
+      "demo_command": "none yet",
+      "not_yet_proven": [
+        "devcontainer_host_lifecycle",
+        "feature_install_closure",
+        "agent_config_triggered_behavior"
+      ]
+    }
+  ]
+}

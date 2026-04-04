@@ -4,6 +4,8 @@ This directory contains the canonical publication bundle for the ZitPit paper.
 
 The source of truth is `main.tex`. The canonical tracked PDF artifact is `zitpit-v1.0-paper.pdf`.
 
+The readable Markdown companion lives in `../papers/publication-draft.md` and is checked for section-level sync with the canonical paper argument structure.
+
 Included here:
 
 - `references.bib`: the BibTeX bibliography

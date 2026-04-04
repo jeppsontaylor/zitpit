@@ -64,7 +64,7 @@ The evidence lane improves ordering and evidence; it is not the root trust model
 
 ## Policy Event Contract
 
-The shared architecture contract is the artifact policy event documented in [`docs/policy-model.md`](docs/policy-model.md):
+The shared architecture contract is the artifact policy event documented in [`policy-model.md`](policy-model.md):
 
 - `selector`
 - `resolved_immutable_identity`
@@ -76,6 +76,8 @@ The shared architecture contract is the artifact policy event documented in [`do
 - `revocation_state`
 
 This is the bridge between admission, evidence, and later recall.
+
+Terminology used here is stabilized in [`docs/glossary.md`](glossary.md). The reviewer-facing claim map lives in [`docs/evidence-index.md`](evidence-index.md).
 
 ## Current vs. Roadmap
 

@@ -51,6 +51,11 @@ Recommended context fields:
 - `execution_surface_flags`
 - `publisher_identity_continuity`
 
+Optional digest fields when the implementation has actually computed them:
+
+- `content_digest_sha256`
+- `normalized_content_digest_sha256`
+
 ## Verdicts
 
 ZitPit uses capability-scoped verdicts:
@@ -128,3 +133,5 @@ Promotion decisions may incorporate:
 If ZitPit does not currently mediate an ingress path, the policy response is explicit `Unsupported` status rather than implied safety.
 
 The policy engine should not pretend unsupported coverage is a success case.
+
+Use [`docs/glossary.md`](glossary.md) for stable terminology and [`claim-matrix.yaml`](claim-matrix.yaml) for the machine-readable claim/status source.

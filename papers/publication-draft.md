@@ -68,6 +68,8 @@ The current threat model emphasizes the places where skeptical reviewers are rig
 
 Mirage Lab is useful as an evidence and ordering engine. It is not a safety oracle, and its quiet output should never be marketed as proof that software is benign.
 
+ZitPit therefore treats resolved immutable identity, compatibility fingerprints, and any separately computed content digests as distinct inputs rather than collapsing them into one trust bit. Provenance, freshness, expiry, revocation, and operator-visible evidence remain separate obligations.
+
 ## 5. Architecture and Policy
 
 ZitPit organizes the control plane into four stages:
@@ -88,6 +90,15 @@ The durable contract is the artifact policy event. It records:
 - `expiry_state`
 - `revocation_state`
 
+Concrete specimen:
+
+> `selector=acme/tool@{pre-resolution}`
+> `resolved_immutable_identity=f3c1...`
+> `provenance_result=verified`
+> `verdict=RUN_DEV`
+> `evidence_pointer=report://quarantine`
+> `context=code_intake/protected_host`
+
 ZitPit uses capability-scoped verdicts rather than simple allow/block:
 
 - `FETCH_ONLY`
@@ -103,6 +114,12 @@ The repository currently demonstrates protected-session enforcement families rat
 ## 6. Preliminary Evaluation
 
 The current evaluation is split into two proof obligations.
+
+### 6.0 Benchmark Methodology
+
+The public timing harness now mirrors the actual upstream repository at the resolved immutable target before timing the approved path. It validates that the seeded managed mirror matches the claimed upstream HEAD and fails report generation if the managed response diverges from the expected immutable target.
+
+The mutable working outputs remain under `docs/benchmarks/latest.*`, but the paper and launch docs now cite a frozen snapshot under `docs/benchmarks/snapshots/` so the evidence reference is not a moving `latest` pointer.
 
 ### 6.1 Deployability
 

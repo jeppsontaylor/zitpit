@@ -28,6 +28,21 @@ impl DecisionEngine {
         let classification = self.classify(&request.observation);
 
         if classification.lane == TrafficLane::Browse {
+            if !self.policy.allow_browse_lane {
+                return ProxyDecision {
+                    action: ProxyAction::Blocked,
+                    reason: "browse traffic is disabled by policy".to_string(),
+                    classification,
+                    manifest_status: None,
+                    fallback: None,
+                    hold_until: None,
+                    matched_record: None,
+                    audit_tags: vec![
+                        "lane:browse".to_string(),
+                        "policy:browse_disabled".to_string(),
+                    ],
+                };
+            }
             return ProxyDecision {
                 action: ProxyAction::Allow,
                 reason: "browse traffic allowed and logged".to_string(),
@@ -279,10 +294,10 @@ fn infer_coordinate(
         requested_selector: selector_hint
             .as_ref()
             .map(|hint| hint.requested.clone())
-            .unwrap_or_else(|| "latest".to_string()),
+            .unwrap_or_else(|| "__unspecified__".to_string()),
         selector_kind: selector_hint
             .map(|hint| hint.kind)
-            .unwrap_or(SelectorKind::Floating),
+            .unwrap_or(SelectorKind::Unspecified),
     }
 }
 
@@ -420,6 +435,8 @@ mod tests {
             resolved_target: "tool-2.0.0".to_string(),
             raw_digest_sha256: crate::manifest::digest_for("blocked-raw"),
             normalized_digest_sha256: crate::manifest::digest_for("blocked-tree"),
+            content_digest_sha256: None,
+            normalized_content_digest_sha256: None,
             status: ApprovalStatus::Blocked,
             first_seen_at: Utc::now(),
             hold_until: Some(Utc::now() + TimeDelta::days(14)),

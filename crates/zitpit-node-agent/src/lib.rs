@@ -1,19 +1,25 @@
-use std::path::PathBuf;
+use std::{
+    net::{SocketAddr, ToSocketAddrs},
+    path::PathBuf,
+};
 
 use axum::{
     Json, Router,
-    extract::State,
-    response::IntoResponse,
+    extract::{Request as AxumRequest, State},
+    http::{self, StatusCode},
+    middleware::{self, Next},
+    response::{IntoResponse, Response as AxumResponse},
     routing::{get, post},
 };
 use serde::Deserialize;
 use tower_http::trace::TraceLayer;
-use zitpit_core::{NodeBootstrapper, PolicySnapshot, StoreHandle, sample_policy};
+use zitpit_core::{NodeBootstrapper, PolicyConfig, PolicySnapshot, StoreHandle, sample_policy};
 use zitpit_flags::CommonFlags;
 
 #[derive(Clone)]
 pub struct AppState {
     pub store: StoreHandle,
+    pub policy: PolicyConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -37,29 +43,46 @@ struct HeartbeatRequest {
 }
 
 pub async fn app_state_from_flags(flags: &CommonFlags) -> AppState {
-    AppState {
-        store: StoreHandle::connect(flags.database_url.as_deref())
-            .await
-            .expect("connect store"),
-    }
+    let store = StoreHandle::connect(flags.database_url.as_deref())
+        .await
+        .expect("connect store");
+    let policy = store
+        .0
+        .get_policy_snapshot()
+        .await
+        .expect("load policy")
+        .map(|snapshot| snapshot.config)
+        .unwrap_or_else(sample_policy);
+    AppState { store, policy }
 }
 
 pub fn build_app(state: AppState) -> Router {
-    Router::new()
-        .route("/healthz", get(healthz))
+    let protected_state = state.clone();
+    let protected = Router::new()
         .route("/api/v1/node/bootstrap", post(bootstrap))
         .route("/api/v1/node/bootstrap/apply", post(apply_bootstrap))
         .route("/api/v1/node/heartbeat", post(heartbeat))
         .route("/api/v1/node/sessions", get(list_sessions))
         .route("/api/v1/node/policy", get(policy))
         .route("/api/v1/node/interception-plan", get(interception_plan))
+        .route_layer(middleware::from_fn_with_state(
+            protected_state,
+            require_admin_bearer_token,
+        ));
+    Router::new()
+        .route("/healthz", get(healthz))
+        .merge(protected)
         .with_state(state)
         .layer(TraceLayer::new_for_http())
 }
 
 pub async fn run(state: AppState) {
+    let addr = socket_addr(
+        &state.policy.node_agent_bind_addr,
+        state.policy.node_agent_port,
+    )
+    .expect("resolve node-agent bind address");
     let app = build_app(state);
-    let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 3006));
     tracing::info!("zitpit-node-agent listening on {addr}");
     axum::serve(
         tokio::net::TcpListener::bind(addr)
@@ -69,6 +92,38 @@ pub async fn run(state: AppState) {
     )
     .await
     .expect("run node agent");
+}
+
+async fn require_admin_bearer_token(
+    State(state): State<AppState>,
+    request: AxumRequest,
+    next: Next,
+) -> AxumResponse {
+    if has_valid_bearer_token(request.headers(), &state.policy.admin_auth_token) {
+        next.run(request).await
+    } else {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "error": "missing or invalid bearer token" })),
+        )
+            .into_response()
+    }
+}
+
+fn has_valid_bearer_token(headers: &http::HeaderMap, expected: &str) -> bool {
+    headers
+        .get(http::header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .map(|token| token == expected)
+        .unwrap_or(false)
+}
+
+fn socket_addr(host: &str, port: u16) -> std::io::Result<SocketAddr> {
+    format!("{host}:{port}")
+        .to_socket_addrs()?
+        .next()
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::AddrNotAvailable, host))
 }
 
 async fn healthz() -> impl IntoResponse {

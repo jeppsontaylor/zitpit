@@ -63,6 +63,7 @@ pub struct GitSmartHttpResult {
     pub resolved_target: Option<String>,
     pub raw_digest_sha256: Option<String>,
     pub normalized_digest_sha256: Option<String>,
+    pub content_digest_sha256: Option<String>,
     pub lifecycle_events: Vec<GitLifecycleEvent>,
 }
 
@@ -75,6 +76,7 @@ pub struct GitPendingResult {
     pub resolved_target: Option<String>,
     pub raw_digest_sha256: Option<String>,
     pub normalized_digest_sha256: Option<String>,
+    pub content_digest_sha256: Option<String>,
     pub quarantine_job: QuarantineJob,
     pub lab_run: Option<LabRun>,
     pub evidence: Option<EvidenceBundle>,
@@ -93,6 +95,7 @@ struct GitRepoIdentity {
     tree_id: String,
     raw_digest_sha256: String,
     normalized_digest_sha256: String,
+    content_digest_sha256: String,
 }
 
 #[derive(Clone)]
@@ -163,12 +166,6 @@ struct ResolvedGitUpstream {
     mode: GitUpstreamMode,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct MirrorSyncResult {
-    upstream: ResolvedGitUpstream,
-    mirror_created: bool,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum GitUpstreamMode {
     SeededMirror,
@@ -233,8 +230,7 @@ impl GitSmartHttpAdapter {
         }
 
         let catalog = ManifestCatalog::new(self.store.0.list_manifest_records().await?);
-        let approved = catalog.latest_approved_for_source(source_url);
-        if approved.is_none() {
+        if catalog.approved_records_for_source(source_url).is_empty() {
             return Err(GitLaneError::Backend(
                 "git source is not approved yet".to_string(),
             ));
@@ -242,49 +238,17 @@ impl GitSmartHttpAdapter {
 
         let project_root = self.approved_root.join(safe_repo_dir(source_url));
         let repo_root = project_root.join(&request.repo_path);
-        let key = ArtifactKey {
-            ecosystem: crate::Ecosystem::Git,
-            source: source_url.to_string(),
-            requested_selector: "git-smart-http".to_string(),
-            selector_kind: crate::SelectorKind::Floating,
-        };
-        let cached = repo_root.join("objects").exists()
-            && self
-                .store
-                .0
-                .get_cache_entry(&key, CacheDomain::Approved)
-                .await?
-                .is_some();
+        let cached = repo_root.join("objects").exists();
+        if !cached {
+            return Err(GitLaneError::Backend(
+                "approved repo mirror is missing from the local cache".to_string(),
+            ));
+        }
         let mut lifecycle_events = Vec::new();
-        let mirror_created = if cached {
-            lifecycle_events.push(GitLifecycleEvent {
-                kind: ProxyTraceKind::CacheHit,
-                detail: format!("served approved repo from cache {source_url}"),
-            });
-            false
-        } else {
-            let upstream = resolve_git_upstream(source_url)?;
-            lifecycle_events.push(GitLifecycleEvent {
-                kind: ProxyTraceKind::FetchStarted,
-                detail: upstream_fetch_detail("approved repo fetch", source_url, &upstream),
-            });
-            let mirror_sync = self
-                .ensure_mirror(source_url, &upstream, &repo_root)
-                .await?;
-            lifecycle_events.push(GitLifecycleEvent {
-                kind: ProxyTraceKind::FetchCompleted,
-                detail: format!(
-                    "{}; mirror ready at {}",
-                    upstream_fetch_detail(
-                        "approved repo fetch completed",
-                        source_url,
-                        &mirror_sync.upstream,
-                    ),
-                    repo_root.display()
-                ),
-            });
-            mirror_sync.mirror_created
-        };
+        lifecycle_events.push(GitLifecycleEvent {
+            kind: ProxyTraceKind::CacheHit,
+            detail: format!("served approved repo from cache {source_url}"),
+        });
         lifecycle_events.push(GitLifecycleEvent {
             kind: ProxyTraceKind::HashStarted,
             detail: format!("computing approved Git digests for {}", repo_root.display()),
@@ -294,6 +258,27 @@ impl GitSmartHttpAdapter {
             kind: ProxyTraceKind::HashCompleted,
             detail: format!("commit={} tree={}", identity.commit_id, identity.tree_id),
         });
+        let approved = catalog
+            .approved_record_for_identity(
+                source_url,
+                &identity.commit_id,
+                &identity.normalized_digest_sha256,
+                Some(&identity.content_digest_sha256),
+            )
+            .ok_or_else(|| {
+                GitLaneError::Backend(format!(
+                    "approved mirror identity mismatch for {source_url}: commit {} is not currently approved",
+                    identity.commit_id
+                ))
+            })?;
+        lifecycle_events.push(GitLifecycleEvent {
+            kind: ProxyTraceKind::ManifestChecked,
+            detail: format!(
+                "approved identity matched resolved target {}",
+                approved.resolved_target
+            ),
+        });
+        let key = ArtifactKey::from(approved.coordinate());
         self.store
             .0
             .put_cache_entry(CacheEntry {
@@ -303,6 +288,7 @@ impl GitSmartHttpAdapter {
                 created_at: Utc::now(),
                 size_bytes: None,
                 digest_sha256: identity.raw_digest_sha256.clone(),
+                content_digest_sha256: Some(identity.content_digest_sha256.clone()),
             })
             .await?;
         let hot_cache_key = GitHotCacheKey::from_request(
@@ -322,12 +308,13 @@ impl GitSmartHttpAdapter {
                 response,
                 source_url: source_url.to_string(),
                 repo_root,
-                mirror_created,
+                mirror_created: false,
                 cache_hit: cached,
                 hot_cache_hit: true,
                 resolved_target: Some(identity.commit_id),
                 raw_digest_sha256: Some(identity.raw_digest_sha256),
                 normalized_digest_sha256: Some(identity.normalized_digest_sha256),
+                content_digest_sha256: Some(identity.content_digest_sha256),
                 lifecycle_events,
             });
         }
@@ -346,12 +333,13 @@ impl GitSmartHttpAdapter {
             response,
             source_url: source_url.to_string(),
             repo_root,
-            mirror_created,
+            mirror_created: false,
             cache_hit: cached,
             hot_cache_hit: false,
             resolved_target: Some(identity.commit_id),
             raw_digest_sha256: Some(identity.raw_digest_sha256),
             normalized_digest_sha256: Some(identity.normalized_digest_sha256),
+            content_digest_sha256: Some(identity.content_digest_sha256),
             lifecycle_events,
         })
     }
@@ -366,20 +354,8 @@ impl GitSmartHttpAdapter {
             .quarantine_root
             .join(safe_repo_dir(source_url))
             .join(&request.repo_path);
-        let key = ArtifactKey {
-            ecosystem: crate::Ecosystem::Git,
-            source: source_url.to_string(),
-            requested_selector: "git-smart-http".to_string(),
-            selector_kind: crate::SelectorKind::Floating,
-        };
         let mut lifecycle_events = Vec::new();
-        let cached = repo_root.join("objects").exists()
-            && self
-                .store
-                .0
-                .get_cache_entry(&key, CacheDomain::Quarantine)
-                .await?
-                .is_some();
+        let cached = repo_root.join("objects").exists();
         if cached {
             lifecycle_events.push(GitLifecycleEvent {
                 kind: ProxyTraceKind::CacheHit,
@@ -428,6 +404,13 @@ impl GitSmartHttpAdapter {
             kind: ProxyTraceKind::ManifestChecked,
             detail: format!("manifest lookup miss for pending source {source_url}"),
         });
+        let coordinate = ArtifactCoordinate {
+            ecosystem: crate::Ecosystem::Git,
+            source: source_url.to_string(),
+            requested_selector: identity.commit_id.clone(),
+            selector_kind: crate::SelectorKind::ExactCommit,
+        };
+        let key = ArtifactKey::from(&coordinate);
 
         let cache_entry = CacheEntry {
             artifact_key: key.clone(),
@@ -436,6 +419,7 @@ impl GitSmartHttpAdapter {
             created_at: Utc::now(),
             size_bytes: None,
             digest_sha256: identity.raw_digest_sha256.clone(),
+            content_digest_sha256: Some(identity.content_digest_sha256.clone()),
         };
         self.store.0.put_cache_entry(cache_entry.clone()).await?;
 
@@ -453,13 +437,6 @@ impl GitSmartHttpAdapter {
             kind: ProxyTraceKind::QuarantineCreated,
             detail: format!("quarantine job {} created", job.job_id),
         });
-
-        let coordinate = ArtifactCoordinate {
-            ecosystem: crate::Ecosystem::Git,
-            source: source_url.to_string(),
-            requested_selector: "git-smart-http".to_string(),
-            selector_kind: crate::SelectorKind::Floating,
-        };
         self.store
             .0
             .upsert_manifest_record(ManifestRecord {
@@ -470,6 +447,8 @@ impl GitSmartHttpAdapter {
                 resolved_target: identity.commit_id.clone(),
                 raw_digest_sha256: identity.raw_digest_sha256.clone(),
                 normalized_digest_sha256: identity.normalized_digest_sha256.clone(),
+                content_digest_sha256: Some(identity.content_digest_sha256.clone()),
+                normalized_content_digest_sha256: None,
                 status: ApprovalStatus::Pending,
                 first_seen_at: Utc::now(),
                 hold_until: Some(job.hold_until),
@@ -530,33 +509,11 @@ impl GitSmartHttpAdapter {
             resolved_target: Some(identity.commit_id),
             raw_digest_sha256: Some(identity.raw_digest_sha256),
             normalized_digest_sha256: Some(identity.normalized_digest_sha256),
+            content_digest_sha256: Some(identity.content_digest_sha256),
             quarantine_job: job,
             lab_run: Some(stored_run),
             evidence: Some(evidence),
             lifecycle_events,
-        })
-    }
-
-    async fn ensure_mirror(
-        &self,
-        source_url: &str,
-        upstream: &ResolvedGitUpstream,
-        repo_root: &Path,
-    ) -> Result<MirrorSyncResult, GitLaneError> {
-        let parent = repo_root.parent().unwrap_or(&self.approved_root);
-        fs::create_dir_all(parent).await?;
-        if repo_root.join("objects").exists() {
-            self.fetch_update(source_url, upstream, repo_root).await?;
-            return Ok(MirrorSyncResult {
-                upstream: upstream.clone(),
-                mirror_created: false,
-            });
-        }
-
-        self.clone_mirror(source_url, upstream, repo_root).await?;
-        Ok(MirrorSyncResult {
-            upstream: upstream.clone(),
-            mirror_created: true,
         })
     }
 
@@ -658,7 +615,7 @@ impl GitSmartHttpAdapter {
             ecosystem: crate::Ecosystem::Git,
             source: source_url.to_string(),
             requested_selector: selector.to_string(),
-            selector_kind: crate::SelectorKind::Floating,
+            selector_kind: crate::SelectorKind::ExactCommit,
         };
         let quarantine_dir = self.quarantine_root.join(safe_repo_dir(source_url));
         fs::create_dir_all(&quarantine_dir).await?;
@@ -669,6 +626,7 @@ impl GitSmartHttpAdapter {
             created_at: chrono::Utc::now(),
             size_bytes: None,
             digest_sha256: crate::manifest::digest_for(source_url),
+            content_digest_sha256: None,
         };
         self.store.0.put_cache_entry(entry.clone()).await?;
         Ok(entry)
@@ -677,13 +635,34 @@ impl GitSmartHttpAdapter {
     async fn inspect_repo(&self, repo_root: &Path) -> Result<GitRepoIdentity, GitLaneError> {
         let commit_id = git_capture(repo_root, &["rev-parse", "HEAD"]).await?;
         let tree_id = git_capture(repo_root, &["rev-parse", "HEAD^{tree}"]).await?;
+        let content_digest_sha256 = git_archive_sha256(repo_root, "HEAD").await?;
         Ok(GitRepoIdentity {
             raw_digest_sha256: digest_for(&commit_id),
             normalized_digest_sha256: digest_for(&tree_id),
+            content_digest_sha256,
             commit_id,
             tree_id,
         })
     }
+}
+
+async fn git_archive_sha256(repo_root: &Path, revision: &str) -> Result<String, GitLaneError> {
+    let output = Command::new("git")
+        .arg("--git-dir")
+        .arg(repo_root)
+        .arg("archive")
+        .arg("--format=tar")
+        .arg(revision)
+        .output()
+        .await?;
+    if !output.status.success() {
+        return Err(GitLaneError::Backend(format!(
+            "git archive failed for {}: {}",
+            repo_root.display(),
+            String::from_utf8_lossy(&output.stderr)
+        )));
+    }
+    Ok(sha256_hex(&output.stdout))
 }
 
 impl GitHttpBackend {
@@ -1016,8 +995,8 @@ mod tests {
         seeded_mirror_path, upstream_fetch_detail,
     };
     use crate::{
-        ApprovalStatus, CacheDomain, CacheEntry, Ecosystem, ManifestRecord, MemoryStore,
-        ProxyTraceKind, SelectorKind, StoreHandle,
+        ApprovalStatus, CacheDomain, Ecosystem, ManifestRecord, MemoryStore, ProxyTraceKind,
+        SelectorKind, StoreHandle,
     };
     use http::StatusCode;
     use zitpit_config::RuntimePaths;
@@ -1052,6 +1031,10 @@ mod tests {
         (dir, format!("file://{}", bare.display()))
     }
 
+    fn test_safe_repo_dir(source_url: &str) -> String {
+        crate::manifest::digest_for(source_url)[..16].to_string()
+    }
+
     fn write_seeded_mirror(root: &Path, source_url: &str) {
         let source = Url::parse(source_url).expect("source url");
         let repo_root = root.join(source.path().trim_start_matches('/'));
@@ -1059,8 +1042,69 @@ mod tests {
         fs::write(repo_root.join("HEAD"), "ref: refs/heads/main\n").expect("head");
     }
 
-    fn test_safe_repo_dir(source_url: &str) -> String {
-        crate::manifest::digest_for(source_url)[..16].to_string()
+    fn git_output(cmd: &mut Command) -> String {
+        let output = cmd.output().expect("run git");
+        assert!(output.status.success(), "git command failed: {output:?}");
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
+    }
+
+    fn git_repo_identity(repo_root: &Path) -> (String, String) {
+        let commit_id = git_output(
+            Command::new("git")
+                .arg("--git-dir")
+                .arg(repo_root)
+                .args(["rev-parse", "HEAD"]),
+        );
+        let tree_id = git_output(
+            Command::new("git")
+                .arg("--git-dir")
+                .arg(repo_root)
+                .args(["rev-parse", "HEAD^{tree}"]),
+        );
+        (commit_id, tree_id)
+    }
+
+    fn git_repo_content_digest(repo_root: &Path) -> String {
+        let output = Command::new("git")
+            .arg("--git-dir")
+            .arg(repo_root)
+            .args(["archive", "--format=tar", "HEAD"])
+            .output()
+            .expect("git archive");
+        assert!(output.status.success(), "git archive failed: {output:?}");
+        super::sha256_hex(&output.stdout)
+    }
+
+    async fn seed_exact_git_approval(
+        store: &StoreHandle,
+        source_url: &str,
+        repo_root: &Path,
+    ) -> (String, String) {
+        let (commit_id, tree_id) = git_repo_identity(repo_root);
+        let content_digest_sha256 = git_repo_content_digest(repo_root);
+        store
+            .0
+            .upsert_manifest_record(ManifestRecord {
+                ecosystem: Ecosystem::Git,
+                source: source_url.to_string(),
+                requested_selector: commit_id.clone(),
+                selector_kind: SelectorKind::ExactCommit,
+                resolved_target: commit_id.clone(),
+                raw_digest_sha256: crate::manifest::digest_for(&commit_id),
+                normalized_digest_sha256: crate::manifest::digest_for(&tree_id),
+                content_digest_sha256: Some(content_digest_sha256),
+                normalized_content_digest_sha256: None,
+                status: ApprovalStatus::Approved,
+                first_seen_at: chrono::Utc::now(),
+                hold_until: None,
+                approved_at: Some(chrono::Utc::now()),
+                fallback: None,
+                detector_refs: vec![],
+                metadata: BTreeMap::from([("tree_id".to_string(), tree_id.clone())]),
+            })
+            .await
+            .expect("seed exact manifest");
+        (commit_id, tree_id)
     }
 
     #[test]
@@ -1091,31 +1135,20 @@ mod tests {
         let (_dir, source_url) = init_repo();
         let temp = tempdir().expect("tempdir");
         let store = StoreHandle::connect_from_env().await.expect("store");
-        store
-            .0
-            .upsert_manifest_record(ManifestRecord {
-                ecosystem: Ecosystem::Git,
-                source: source_url.clone(),
-                requested_selector: "refs/heads/main".to_string(),
-                selector_kind: SelectorKind::Branch,
-                resolved_target: "main".to_string(),
-                raw_digest_sha256: crate::manifest::digest_for("raw"),
-                normalized_digest_sha256: crate::manifest::digest_for("normalized"),
-                status: ApprovalStatus::Approved,
-                first_seen_at: chrono::Utc::now(),
-                hold_until: None,
-                approved_at: Some(chrono::Utc::now()),
-                fallback: None,
-                detector_refs: vec![],
-                metadata: BTreeMap::new(),
-            })
-            .await
-            .expect("seed manifest");
+        let runtime = RuntimePaths::new(temp.path().join("state"));
+        runtime.ensure_dirs().expect("runtime dirs");
+        let project_root = runtime
+            .git_approved_root
+            .join(test_safe_repo_dir(&source_url));
+        let repo_root = project_root.join("owner/repo.git");
+        fs::create_dir_all(repo_root.parent().expect("repo parent")).expect("approved repo parent");
+        git(Command::new("git")
+            .args(["clone", "--mirror"])
+            .arg(source_url.trim_start_matches("file://"))
+            .arg(&repo_root));
+        seed_exact_git_approval(&store, &source_url, &repo_root).await;
 
-        let adapter = GitSmartHttpAdapter::with_paths(
-            store.clone(),
-            RuntimePaths::new(temp.path().join("state")),
-        );
+        let adapter = GitSmartHttpAdapter::with_paths(store.clone(), runtime);
         let request_url =
             Url::parse("https://git.example/owner/repo.git/info/refs?service=git-upload-pack")
                 .expect("url");
@@ -1155,20 +1188,32 @@ mod tests {
             .await
             .expect("acquire unknown source");
         assert_eq!(result.response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let resolved_target = result
+            .resolved_target
+            .clone()
+            .expect("resolved quarantine target");
         let cache = store
             .0
             .get_cache_entry(
                 &crate::ArtifactKey {
                     ecosystem: crate::Ecosystem::Git,
                     source: source_url.clone(),
-                    requested_selector: "git-smart-http".to_string(),
-                    selector_kind: crate::SelectorKind::Floating,
+                    requested_selector: resolved_target.clone(),
+                    selector_kind: crate::SelectorKind::ExactCommit,
                 },
                 CacheDomain::Quarantine,
             )
             .await
             .expect("cache lookup");
         assert!(cache.is_some());
+        assert_eq!(
+            result.quarantine_job.artifact_key.requested_selector,
+            resolved_target
+        );
+        assert_eq!(
+            result.quarantine_job.artifact_key.selector_kind,
+            SelectorKind::ExactCommit
+        );
         assert!(result.raw_digest_sha256.is_some());
         assert!(result.normalized_digest_sha256.is_some());
         assert!(result.lab_run.is_some());
@@ -1200,27 +1245,6 @@ mod tests {
         runtime.ensure_dirs().expect("runtime dirs");
         let store = StoreHandle::from_memory(MemoryStore::seeded().await);
 
-        store
-            .0
-            .upsert_manifest_record(ManifestRecord {
-                ecosystem: Ecosystem::Git,
-                source: source_url.clone(),
-                requested_selector: "refs/heads/main".to_string(),
-                selector_kind: SelectorKind::Branch,
-                resolved_target: "main".to_string(),
-                raw_digest_sha256: crate::manifest::digest_for("raw"),
-                normalized_digest_sha256: crate::manifest::digest_for("normalized"),
-                status: ApprovalStatus::Approved,
-                first_seen_at: chrono::Utc::now(),
-                hold_until: None,
-                approved_at: Some(chrono::Utc::now()),
-                fallback: None,
-                detector_refs: vec![],
-                metadata: BTreeMap::new(),
-            })
-            .await
-            .expect("seed manifest");
-
         let project_root = runtime
             .git_approved_root
             .join(test_safe_repo_dir(&source_url));
@@ -1230,24 +1254,8 @@ mod tests {
             .args(["clone", "--mirror"])
             .arg(source_url.trim_start_matches("file://"))
             .arg(&repo_root));
-
-        store
-            .0
-            .put_cache_entry(CacheEntry {
-                artifact_key: crate::ArtifactKey {
-                    ecosystem: Ecosystem::Git,
-                    source: source_url.clone(),
-                    requested_selector: "git-smart-http".to_string(),
-                    selector_kind: SelectorKind::Floating,
-                },
-                domain: CacheDomain::Approved,
-                storage_path: repo_root.display().to_string(),
-                created_at: chrono::Utc::now(),
-                size_bytes: None,
-                digest_sha256: crate::manifest::digest_for("approved"),
-            })
-            .await
-            .expect("approved cache");
+        let (approved_commit, approved_tree) =
+            seed_exact_git_approval(&store, &source_url, &repo_root).await;
 
         let adapter = GitSmartHttpAdapter::with_paths_and_hold_duration_and_hot_cache_capacity(
             store.clone(),
@@ -1306,6 +1314,15 @@ mod tests {
             .expect("second body")
             .to_bytes();
         assert_eq!(first_body, second_body);
+        assert_eq!(
+            first.resolved_target.as_deref(),
+            Some(approved_commit.as_str())
+        );
+        let approved_tree_digest = crate::manifest::digest_for(&approved_tree);
+        assert_eq!(
+            first.normalized_digest_sha256.as_deref(),
+            Some(approved_tree_digest.as_str())
+        );
     }
 
     #[test]

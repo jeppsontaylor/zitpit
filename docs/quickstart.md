@@ -10,15 +10,7 @@ The public benchmark matrix in [BENCHMARKS.md](../BENCHMARKS.md) defines the sup
 *   **Docker & Docker Compose**: For the containerized demo services.
 *   **Linux (recommended)**: For the strongest end-to-end demo experience. macOS and Windows can be configured for some local proxy flows, but broader coverage is still partial on those platforms.
 
-## Step 1: Verify the Repository
-
-Before running any code, verify that your local copy matches the published bootstrap integrity check:
-
-```bash
-sh scripts/verify_hash.sh
-```
-
-## Step 2: Launch the Docker Demo
+## Step 1: Launch the Docker Demo
 
 We provide an `xtask` to simplify launching the demo stack.
 
@@ -32,12 +24,20 @@ We provide an `xtask` to simplify launching the demo stack.
     ssh zitpit
     ```
 
-## Step 3: Access the Admin UI
+## Step 2: Access the Admin UI
 
 Open the TUI (Terminal User Interface) to monitor the proxy and manage artifacts:
 
 ```bash
 cargo run -p zitpit-tui
+```
+
+## Step 3: Run the CI-Aligned Smoke Path
+
+The same demo smoke flow exercised in CI is:
+
+```bash
+cargo run -p xtask -- demo smoke
 ```
 
 ## Step 4: Test a Protected Clone
@@ -50,7 +50,12 @@ git ls-remote https://github.com/jeppsontaylor/approved.git
 
 ## Next Steps
 
+*   Read [deployment-hardening.md](deployment-hardening.md) before exposing any service beyond a local demo environment.
 *   Read the [Operator Guide](operator-guide.md) for detailed configuration.
 *   Check the [Agent Setup](agent-setup.md) to integrate with tools like Antigravity or Cursor.
 *   Review [CLAIMS.md](../CLAIMS.md) and [BENCHMARKS.md](../BENCHMARKS.md) before making public claims.
 *   Understand the [Trust Model](trust-model.md).
+
+## Demo-Only Bootstrap Verification
+
+The old repository-hash check is intentionally no longer part of the main quickstart because it is demo scaffolding rather than the release trust path. See [release-verification.md](release-verification.md) for published artifact verification and [hash-verification.md](hash-verification.md) if you want to inspect or run the demo helper.

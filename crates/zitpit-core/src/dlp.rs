@@ -23,8 +23,9 @@ static AWS_KEY_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"AKIA[0-9A-
 static AWS_SECRET_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"(?i)aws_secret_access_key\s*[:=]\s*['"]?[A-Za-z0-9/+=]{32,}['"]?"#).unwrap()
 });
-static GITHUB_TOKEN_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b").unwrap());
+static GITHUB_TOKEN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b").unwrap()
+});
 static ANTHROPIC_KEY_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\bsk-ant-[A-Za-z0-9_-]{16,}\b").unwrap());
 static OPENAI_KEY_REGEX: LazyLock<Regex> =
@@ -95,6 +96,11 @@ fn scan_payload_with_depth(chunk: &[u8], depth: usize) -> DlpVerdict {
         encoding: detect_encoding(clipped),
         payload_sha256: hex::encode(Sha256::digest(clipped)),
         inspection_error: None,
+        inspection_partial: chunk.len() > MAX_SCAN_BYTES,
+        truncated: chunk.len() > MAX_SCAN_BYTES,
+        archive_depth_limit_hit: false,
+        archive_entry_limit_hit: false,
+        encrypted_archive: false,
     };
 
     scan_textual_detectors(clipped, &mut verdict);
@@ -106,6 +112,12 @@ fn scan_payload_with_depth(chunk: &[u8], depth: usize) -> DlpVerdict {
             ContentEncoding::Tar => scan_tar_archive(clipped, depth + 1, &mut verdict),
             _ => {}
         }
+    } else if matches!(
+        verdict.encoding,
+        ContentEncoding::Gzip | ContentEncoding::Zip | ContentEncoding::Tar
+    ) {
+        verdict.archive_depth_limit_hit = true;
+        verdict.inspection_partial = true;
     }
 
     verdict
@@ -315,6 +327,10 @@ fn scan_gzip_archive(chunk: &[u8], depth: usize, verdict: &mut DlpVerdict) {
         verdict.encoding = ContentEncoding::Unknown;
         return;
     }
+    if unpacked.len() >= MAX_ARCHIVE_ENTRY_BYTES {
+        verdict.inspection_partial = true;
+        verdict.truncated = true;
+    }
     verdict.archive_unpacked = true;
     merge_nested_verdict(verdict, scan_payload_with_depth(&unpacked, depth));
 }
@@ -327,7 +343,14 @@ fn scan_tar_archive(chunk: &[u8], depth: usize, verdict: &mut DlpVerdict) {
         return;
     };
 
-    for (index, entry) in entries.take(MAX_ARCHIVE_ENTRIES).enumerate() {
+    let mut entry_count = 0usize;
+    for (index, entry) in entries.enumerate() {
+        entry_count += 1;
+        if entry_count > MAX_ARCHIVE_ENTRIES {
+            verdict.archive_entry_limit_hit = true;
+            verdict.inspection_partial = true;
+            break;
+        }
         let Ok(mut entry) = entry else {
             verdict.inspection_error = Some("tar entry could not be read".to_string());
             verdict.encoding = ContentEncoding::Unknown;
@@ -339,6 +362,10 @@ fn scan_tar_archive(chunk: &[u8], depth: usize, verdict: &mut DlpVerdict) {
             verdict.inspection_error = Some(format!("tar entry {index} read failed: {error}"));
             verdict.encoding = ContentEncoding::Unknown;
             return;
+        }
+        if buf.len() >= MAX_ARCHIVE_ENTRY_BYTES {
+            verdict.inspection_partial = true;
+            verdict.truncated = true;
         }
         verdict.archive_unpacked = true;
         merge_nested_verdict(verdict, scan_payload_with_depth(&buf, depth));
@@ -356,6 +383,10 @@ fn scan_zip_archive(chunk: &[u8], depth: usize, verdict: &mut DlpVerdict) {
         return;
     };
 
+    if archive.len() > MAX_ARCHIVE_ENTRIES {
+        verdict.archive_entry_limit_hit = true;
+        verdict.inspection_partial = true;
+    }
     for index in 0..archive.len().min(MAX_ARCHIVE_ENTRIES) {
         let Ok(mut file) = archive.by_index(index) else {
             verdict.inspection_error = Some("zip entry could not be opened".to_string());
@@ -365,6 +396,8 @@ fn scan_zip_archive(chunk: &[u8], depth: usize, verdict: &mut DlpVerdict) {
         if file.encrypted() {
             verdict.inspection_error = Some("encrypted zip entry".to_string());
             verdict.encoding = ContentEncoding::Encrypted;
+            verdict.encrypted_archive = true;
+            verdict.inspection_partial = true;
             return;
         }
         let mut buf = Vec::new();
@@ -373,6 +406,10 @@ fn scan_zip_archive(chunk: &[u8], depth: usize, verdict: &mut DlpVerdict) {
             verdict.inspection_error = Some(format!("zip entry {index} read failed: {error}"));
             verdict.encoding = ContentEncoding::Unknown;
             return;
+        }
+        if buf.len() >= MAX_ARCHIVE_ENTRY_BYTES {
+            verdict.inspection_partial = true;
+            verdict.truncated = true;
         }
         verdict.archive_unpacked = true;
         merge_nested_verdict(verdict, scan_payload_with_depth(&buf, depth));
@@ -386,6 +423,11 @@ fn merge_nested_verdict(into: &mut DlpVerdict, nested: DlpVerdict) {
     into.matches.extend(nested.matches);
     into.archive_unpacked |= nested.archive_unpacked;
     into.analyzed_bytes = into.analyzed_bytes.saturating_add(nested.analyzed_bytes);
+    into.inspection_partial |= nested.inspection_partial;
+    into.truncated |= nested.truncated;
+    into.archive_depth_limit_hit |= nested.archive_depth_limit_hit;
+    into.archive_entry_limit_hit |= nested.archive_entry_limit_hit;
+    into.encrypted_archive |= nested.encrypted_archive;
     if into.inspection_error.is_none() {
         into.inspection_error = nested.inspection_error;
     }

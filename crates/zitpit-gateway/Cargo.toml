@@ -22,6 +22,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 url.workspace = true
 uuid.workspace = true
+ipnet.workspace = true
 zitpit-config = { path = "../zitpit-config" }
 zitpit-flags = { path = "../zitpit-flags" }
 zitpit-core = { path = "../zitpit-core" }

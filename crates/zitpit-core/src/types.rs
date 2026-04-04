@@ -29,6 +29,7 @@ pub enum SelectorKind {
     SemverRange,
     Floating,
     Url,
+    Unspecified,
 }
 
 impl SelectorKind {
@@ -225,11 +226,82 @@ impl LockdownMode {
 /// Temporary break-glass override context. Only meaningful when mode is BreakGlass.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LockdownOverride {
+    pub override_id: Uuid,
     pub mode: LockdownMode,
     pub requested_by: String,
     pub reason: String,
     pub expires_at: DateTime<Utc>,
     pub evidence_id: Uuid,
+    pub created_at: DateTime<Utc>,
+    pub revoked_at: Option<DateTime<Utc>>,
+    pub policy_revision: String,
+}
+
+impl LockdownOverride {
+    pub fn is_active_at(&self, now: DateTime<Utc>) -> bool {
+        self.mode.is_break_glass() && self.revoked_at.is_none() && self.expires_at > now
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CapabilityVerdict {
+    FetchOnly,
+    UnpackOnly,
+    BuildNoNetwork,
+    TestNoSecrets,
+    RunDev,
+    RunCi,
+    Blocked,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ProvenanceStatus {
+    Unknown,
+    Pending,
+    Verified,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProvenanceResult {
+    pub status: ProvenanceStatus,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct PolicyEventContext {
+    #[serde(default)]
+    pub request_id: Option<Uuid>,
+    #[serde(default)]
+    pub session_id: Option<Uuid>,
+    #[serde(default)]
+    pub lane: Option<TrafficLane>,
+    #[serde(default)]
+    pub code_intent: Option<CodeIntent>,
+    #[serde(default)]
+    pub host_scope: Option<String>,
+    #[serde(default)]
+    pub source_coordinates: Option<String>,
+    #[serde(default)]
+    pub execution_surface_flags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct ExpiryState {
+    #[serde(default)]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub is_expired: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct RevocationState {
+    #[serde(default)]
+    pub revoked_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -278,8 +350,12 @@ pub struct CanonicalCommand {
     pub binary_path: String,
     pub argv: Vec<String>,
     #[serde(default)]
+    pub env: BTreeMap<String, String>,
+    #[serde(default)]
     pub interpreter_chain: Vec<String>,
     pub inline_eval: bool,
+    #[serde(default)]
+    pub parse_error: Option<String>,
     pub cwd: String,
 }
 
@@ -401,8 +477,14 @@ pub struct ManifestRecord {
     pub requested_selector: String,
     pub selector_kind: SelectorKind,
     pub resolved_target: String,
+    /// Legacy identity fingerprint over the raw resolved identity.
     pub raw_digest_sha256: String,
+    /// Legacy identity fingerprint over the normalized identity, not always a byte-level digest.
     pub normalized_digest_sha256: String,
+    #[serde(default)]
+    pub content_digest_sha256: Option<String>,
+    #[serde(default)]
+    pub normalized_content_digest_sha256: Option<String>,
     pub status: ApprovalStatus,
     pub first_seen_at: DateTime<Utc>,
     pub hold_until: Option<DateTime<Utc>>,
@@ -449,11 +531,31 @@ pub struct PolicyConfig {
     pub enabled_ecosystems: Vec<Ecosystem>,
     pub allow_browse_lane: bool,
     pub log_all_https: bool,
+    #[serde(default = "default_proxy_bind_addr")]
+    pub proxy_bind_addr: String,
     pub proxy_port: u16,
+    #[serde(default = "default_admin_bind_addr")]
+    pub admin_bind_addr: String,
     pub admin_port: u16,
+    #[serde(default = "default_node_agent_bind_addr")]
+    pub node_agent_bind_addr: String,
+    #[serde(default = "default_node_agent_port")]
+    pub node_agent_port: u16,
     pub capture_http_port: u16,
     pub transparent_capture: bool,
     pub bypass_hosts: Vec<String>,
+    #[serde(default = "default_admin_auth_token")]
+    pub admin_auth_token: String,
+    #[serde(default)]
+    pub demo_mode: bool,
+    #[serde(default = "default_captured_request_retention")]
+    pub captured_request_retention: usize,
+    #[serde(default = "default_captured_header_allowlist")]
+    pub captured_header_allowlist: Vec<String>,
+    #[serde(default = "default_internal_cidrs")]
+    pub internal_cidrs: Vec<String>,
+    #[serde(default = "default_internal_host_suffixes")]
+    pub internal_host_suffixes: Vec<String>,
 }
 
 impl Default for PolicyConfig {
@@ -472,8 +574,12 @@ impl Default for PolicyConfig {
             ],
             allow_browse_lane: true,
             log_all_https: true,
+            proxy_bind_addr: default_proxy_bind_addr(),
             proxy_port: 3004,
+            admin_bind_addr: default_admin_bind_addr(),
             admin_port: 3000,
+            node_agent_bind_addr: default_node_agent_bind_addr(),
+            node_agent_port: default_node_agent_port(),
             capture_http_port: 3005,
             transparent_capture: true,
             bypass_hosts: vec![
@@ -481,8 +587,65 @@ impl Default for PolicyConfig {
                 "updates.zitpit.internal".to_string(),
                 "breakglass.zitpit.internal".to_string(),
             ],
+            admin_auth_token: default_admin_auth_token(),
+            demo_mode: false,
+            captured_request_retention: default_captured_request_retention(),
+            captured_header_allowlist: default_captured_header_allowlist(),
+            internal_cidrs: default_internal_cidrs(),
+            internal_host_suffixes: default_internal_host_suffixes(),
         }
     }
+}
+
+fn default_proxy_bind_addr() -> String {
+    "0.0.0.0".to_string()
+}
+
+fn default_admin_bind_addr() -> String {
+    "127.0.0.1".to_string()
+}
+
+fn default_node_agent_bind_addr() -> String {
+    "127.0.0.1".to_string()
+}
+
+fn default_node_agent_port() -> u16 {
+    3006
+}
+
+fn default_admin_auth_token() -> String {
+    "zitpit-dev-admin-token".to_string()
+}
+
+fn default_captured_request_retention() -> usize {
+    200
+}
+
+fn default_captured_header_allowlist() -> Vec<String> {
+    vec![
+        "accept".to_string(),
+        "accept-encoding".to_string(),
+        "content-length".to_string(),
+        "content-type".to_string(),
+        "host".to_string(),
+        "user-agent".to_string(),
+    ]
+}
+
+fn default_internal_cidrs() -> Vec<String> {
+    vec![
+        "127.0.0.0/8".to_string(),
+        "10.0.0.0/8".to_string(),
+        "172.16.0.0/12".to_string(),
+        "192.168.0.0/16".to_string(),
+        "::1/128".to_string(),
+        "fc00::/7".to_string(),
+        "fe80::/10".to_string(),
+    ]
+}
+
+fn default_internal_host_suffixes() -> Vec<String> {
+    vec![".internal".to_string(), ".cluster.local".to_string()]
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -707,6 +870,10 @@ pub struct ResolvedArtifact {
     pub immutable_target: String,
     pub raw_digest_sha256: String,
     pub normalized_digest_sha256: String,
+    #[serde(default)]
+    pub content_digest_sha256: Option<String>,
+    #[serde(default)]
+    pub normalized_content_digest_sha256: Option<String>,
     pub metadata: BTreeMap<String, String>,
 }
 
@@ -717,7 +884,29 @@ pub struct CacheEntry {
     pub storage_path: String,
     pub created_at: DateTime<Utc>,
     pub size_bytes: Option<u64>,
+    /// Legacy cache fingerprint kept for compatibility with existing stored records.
     pub digest_sha256: String,
+    #[serde(default)]
+    pub content_digest_sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ArtifactPolicyEvent {
+    pub event_id: Uuid,
+    pub artifact_key: ArtifactKey,
+    pub selector: ArtifactCoordinate,
+    pub resolved_immutable_identity: Option<String>,
+    pub provenance_result: ProvenanceResult,
+    pub verdict: CapabilityVerdict,
+    pub evidence_pointer: Option<Uuid>,
+    #[serde(default)]
+    pub content_digest_sha256: Option<String>,
+    #[serde(default)]
+    pub normalized_content_digest_sha256: Option<String>,
+    pub context: PolicyEventContext,
+    pub expiry_state: ExpiryState,
+    pub revocation_state: RevocationState,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -814,4 +1003,61 @@ pub struct ProxyTunnelDecision {
 
 pub fn sample_policy() -> PolicyConfig {
     PolicyConfig::default()
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{ApprovalStatus, CacheDomain, CacheEntry, Ecosystem, ManifestRecord, SelectorKind};
+
+    #[test]
+    fn manifest_record_backfills_new_digest_fields() {
+        let record: ManifestRecord = serde_json::from_value(json!({
+            "ecosystem": "git",
+            "source": "https://github.com/acme/example.git",
+            "requested_selector": "deadbeef",
+            "selector_kind": "exact_commit",
+            "resolved_target": "deadbeef",
+            "raw_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "normalized_digest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "status": "approved",
+            "first_seen_at": "2026-04-04T00:00:00Z",
+            "hold_until": null,
+            "approved_at": "2026-04-04T00:00:00Z",
+            "fallback": null,
+            "detector_refs": [],
+            "metadata": {}
+        }))
+        .expect("legacy manifest record deserializes");
+
+        assert_eq!(record.ecosystem, Ecosystem::Git);
+        assert_eq!(record.selector_kind, SelectorKind::ExactCommit);
+        assert_eq!(record.status, ApprovalStatus::Approved);
+        assert_eq!(record.content_digest_sha256, None);
+        assert_eq!(record.normalized_content_digest_sha256, None);
+    }
+
+    #[test]
+    fn cache_entry_backfills_new_content_digest_field() {
+        let entry: CacheEntry = serde_json::from_value(json!({
+            "artifact_key": {
+                "ecosystem": "archive",
+                "source": "https://example.com/tool.tar.gz",
+                "requested_selector": "v1.0.0",
+                "selector_kind": "tag"
+            },
+            "domain": "approved",
+            "storage_path": "/tmp/example",
+            "created_at": "2026-04-04T00:00:00Z",
+            "size_bytes": 42,
+            "digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }))
+        .expect("legacy cache entry deserializes");
+
+        assert_eq!(entry.artifact_key.ecosystem, Ecosystem::Archive);
+        assert_eq!(entry.artifact_key.selector_kind, SelectorKind::Tag);
+        assert_eq!(entry.domain, CacheDomain::Approved);
+        assert_eq!(entry.content_digest_sha256, None);
+    }
 }

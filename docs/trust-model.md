@@ -19,7 +19,7 @@ ZitPit is designed to consume these primitives progressively. The current reposi
 
 Hash equality is not provenance.
 
-A digest can establish immutable identity. It does not by itself say:
+A real content digest can establish byte sameness. In ZitPit's current code, some older compatibility fields still carry identity fingerprints rather than byte-level digests, and those should not be read as stronger proof than they are. Even a real digest does not by itself say:
 
 - who built the artifact
 - whether the publish path drifted
@@ -27,7 +27,7 @@ A digest can establish immutable identity. It does not by itself say:
 - whether revocation has occurred
 - whether this context should grant host execution rights
 
-That is why ZitPit treats identity, provenance, policy, and evidence as separate inputs.
+That is why ZitPit treats immutable identity, content digests, provenance, policy, and evidence as separate inputs.
 
 ## Approval State
 

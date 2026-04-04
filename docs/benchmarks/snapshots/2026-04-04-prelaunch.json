@@ -1,0 +1,952 @@
+{
+  "generated_at": "2026-04-02T14:03:44.524524Z",
+  "samples": [
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 433,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 43,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 13,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 422,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 31,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 15,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 429,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 46,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 17,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 443,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 45,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 17,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 437,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 37,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 15,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 492,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 44,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 16,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 497,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 41,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 16,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 501,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 31,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 13,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 472,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 44,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 15,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 479,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 44,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 18,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 734,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 32,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 13,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 726,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 34,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 14,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 786,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 30,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 13,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 760,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 28,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 12,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 731,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 34,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 16,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 811,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 31,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 13,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 1119,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 38,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 15,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 1265,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 35,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 14,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 920,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 35,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 15,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 1062,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 33,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 13,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 1846,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 37,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 13,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 582,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 42,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 18,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 810,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 44,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 16,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 553,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 31,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 13,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "web",
+      "cache_state": "upstream_web",
+      "elapsed_ms": 553,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "cache",
+      "cache_state": "approved_disk_cache",
+      "elapsed_ms": 39,
+      "claim_class": "git_smart_http_intake"
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "mode": "hot_cache",
+      "cache_state": "approved_hot_cache",
+      "elapsed_ms": 15,
+      "claim_class": "git_smart_http_intake"
+    }
+  ],
+  "repos": [
+    {
+      "repo": "git",
+      "source_url": "https://github.com/git/git.git",
+      "request_url": "https://zitpit.invalid/git/git.git/info/refs?service=git-upload-pack",
+      "resolved_head_sha": "cf2139f8e1680b076e115bc0b349e369b4b0ecc4",
+      "web": {
+        "median_ms": 433,
+        "p95_ms": 443,
+        "samples_ms": [
+          422,
+          429,
+          433,
+          437,
+          443
+        ]
+      },
+      "cache": {
+        "median_ms": 43,
+        "p95_ms": 46,
+        "samples_ms": [
+          31,
+          37,
+          43,
+          45,
+          46
+        ]
+      },
+      "hot_cache": {
+        "median_ms": 15,
+        "p95_ms": 17,
+        "samples_ms": [
+          13,
+          15,
+          15,
+          17,
+          17
+        ]
+      }
+    },
+    {
+      "repo": "go",
+      "source_url": "https://github.com/golang/go.git",
+      "request_url": "https://zitpit.invalid/golang/go.git/info/refs?service=git-upload-pack",
+      "resolved_head_sha": "affadc7997466dfacad5b9a3dc90ee5e7a7b6085",
+      "web": {
+        "median_ms": 492,
+        "p95_ms": 501,
+        "samples_ms": [
+          472,
+          479,
+          492,
+          497,
+          501
+        ]
+      },
+      "cache": {
+        "median_ms": 44,
+        "p95_ms": 44,
+        "samples_ms": [
+          31,
+          41,
+          44,
+          44,
+          44
+        ]
+      },
+      "hot_cache": {
+        "median_ms": 16,
+        "p95_ms": 18,
+        "samples_ms": [
+          13,
+          15,
+          16,
+          16,
+          18
+        ]
+      }
+    },
+    {
+      "repo": "node",
+      "source_url": "https://github.com/nodejs/node.git",
+      "request_url": "https://zitpit.invalid/nodejs/node.git/info/refs?service=git-upload-pack",
+      "resolved_head_sha": "4f6e60226ffda76640d6e113f02675bd1caf9bd4",
+      "web": {
+        "median_ms": 734,
+        "p95_ms": 786,
+        "samples_ms": [
+          726,
+          731,
+          734,
+          760,
+          786
+        ]
+      },
+      "cache": {
+        "median_ms": 32,
+        "p95_ms": 34,
+        "samples_ms": [
+          28,
+          30,
+          32,
+          34,
+          34
+        ]
+      },
+      "hot_cache": {
+        "median_ms": 13,
+        "p95_ms": 16,
+        "samples_ms": [
+          12,
+          13,
+          13,
+          14,
+          16
+        ]
+      }
+    },
+    {
+      "repo": "cpython",
+      "source_url": "https://github.com/python/cpython.git",
+      "request_url": "https://zitpit.invalid/python/cpython.git/info/refs?service=git-upload-pack",
+      "resolved_head_sha": "fc7a188fe70a7b98696b4fcee8db9eb8398aeb7b",
+      "web": {
+        "median_ms": 1062,
+        "p95_ms": 1265,
+        "samples_ms": [
+          811,
+          920,
+          1062,
+          1119,
+          1265
+        ]
+      },
+      "cache": {
+        "median_ms": 35,
+        "p95_ms": 38,
+        "samples_ms": [
+          31,
+          33,
+          35,
+          35,
+          38
+        ]
+      },
+      "hot_cache": {
+        "median_ms": 14,
+        "p95_ms": 15,
+        "samples_ms": [
+          13,
+          13,
+          14,
+          15,
+          15
+        ]
+      }
+    },
+    {
+      "repo": "terraform",
+      "source_url": "https://github.com/hashicorp/terraform.git",
+      "request_url": "https://zitpit.invalid/hashicorp/terraform.git/info/refs?service=git-upload-pack",
+      "resolved_head_sha": "e3d2b7de8be0dfbfe12e243a914da20806975fef",
+      "web": {
+        "median_ms": 582,
+        "p95_ms": 1846,
+        "samples_ms": [
+          553,
+          553,
+          582,
+          810,
+          1846
+        ]
+      },
+      "cache": {
+        "median_ms": 39,
+        "p95_ms": 44,
+        "samples_ms": [
+          31,
+          37,
+          39,
+          42,
+          44
+        ]
+      },
+      "hot_cache": {
+        "median_ms": 15,
+        "p95_ms": 18,
+        "samples_ms": [
+          13,
+          13,
+          15,
+          16,
+          18
+        ]
+      }
+    }
+  ]
+}

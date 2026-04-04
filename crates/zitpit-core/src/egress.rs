@@ -56,6 +56,7 @@ pub enum ContentEncoding {
 #[serde(rename_all = "snake_case")]
 pub enum TransferKind {
     HttpReq,
+    HttpRead,
     HttpRes,
     GitPush,
     GitFetch,
@@ -82,6 +83,11 @@ pub struct DlpVerdict {
     pub encoding: ContentEncoding,
     pub payload_sha256: String,
     pub inspection_error: Option<String>,
+    pub inspection_partial: bool,
+    pub truncated: bool,
+    pub archive_depth_limit_hit: bool,
+    pub archive_entry_limit_hit: bool,
+    pub encrypted_archive: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -96,6 +102,8 @@ pub struct EgressRequest {
     pub verdict: DlpVerdict,
     #[serde(default)]
     pub regulated_transport_approved: bool,
+    #[serde(default = "default_policy_revision")]
+    pub policy_revision: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -110,6 +118,8 @@ pub struct EgressDecision {
     pub archive_unpacked: bool,
     pub analyzed_bytes: usize,
     pub payload_sha256: String,
+    pub inspection_partial: bool,
+    pub encrypted_archive: bool,
 }
 
 pub fn evaluate_egress(request: &EgressRequest) -> EgressDecision {
@@ -178,6 +188,15 @@ pub fn evaluate_egress_with_mode(
         decide_sensitive_payloads(request, &matched_classes)
     };
 
+    if request.verdict.inspection_partial && matches!(outcome, EgressOutcome::Allow) {
+        outcome = if mode.egress_default_deny() {
+            EgressOutcome::Deny
+        } else {
+            EgressOutcome::StepUp
+        };
+        reason = format!("partial payload inspection requires stronger review: {reason}");
+    }
+
     if mode.stepup_treated_as_deny() && outcome == EgressOutcome::StepUp {
         outcome = EgressOutcome::Deny;
         reason = format!("{} (downgraded by sealed mode)", reason);
@@ -189,12 +208,18 @@ pub fn evaluate_egress_with_mode(
         matched_classes,
         matched_detector_ids,
         evidence_id: Uuid::new_v4(),
-        policy_revision: "max-containment-dlp-v2".to_string(),
+        policy_revision: request.policy_revision.clone(),
         content_encoding: request.encoding,
         archive_unpacked: request.verdict.archive_unpacked,
         analyzed_bytes: request.verdict.analyzed_bytes,
         payload_sha256: request.verdict.payload_sha256.clone(),
+        inspection_partial: request.verdict.inspection_partial,
+        encrypted_archive: request.verdict.encrypted_archive,
     }
+}
+
+fn default_policy_revision() -> String {
+    "policy-unset".to_string()
 }
 
 fn decide_sensitive_payloads(
@@ -290,8 +315,14 @@ mod tests {
                 encoding: ContentEncoding::Plaintext,
                 payload_sha256: "abc".to_string(),
                 inspection_error: None,
+                inspection_partial: false,
+                truncated: false,
+                archive_depth_limit_hit: false,
+                archive_entry_limit_hit: false,
+                encrypted_archive: false,
             },
             regulated_transport_approved: false,
+            policy_revision: "test-policy".to_string(),
         }
     }
 

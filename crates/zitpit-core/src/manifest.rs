@@ -127,6 +127,8 @@ impl ManifestCatalog {
                 resolved_target: "1f2e3d4c5b6a7980112233445566778899aabbcc".to_string(),
                 raw_digest_sha256: digest_for("git-main-raw"),
                 normalized_digest_sha256: digest_for("git-main-tree"),
+                content_digest_sha256: None,
+                normalized_content_digest_sha256: None,
                 status: ApprovalStatus::Approved,
                 first_seen_at: now - TimeDelta::days(30),
                 hold_until: None,
@@ -143,6 +145,8 @@ impl ManifestCatalog {
                 resolved_target: "abc1234567890abc1234567890abc1234567890".to_string(),
                 raw_digest_sha256: digest_for("git-tag-raw"),
                 normalized_digest_sha256: digest_for("git-tag-tree"),
+                content_digest_sha256: None,
+                normalized_content_digest_sha256: None,
                 status: ApprovalStatus::Approved,
                 first_seen_at: now - TimeDelta::days(20),
                 hold_until: None,
@@ -159,6 +163,8 @@ impl ManifestCatalog {
                 resolved_target: "lodash@4.17.21".to_string(),
                 raw_digest_sha256: digest_for("npm-lodash-4.17.21-raw"),
                 normalized_digest_sha256: digest_for("npm-lodash-4.17.21-tree"),
+                content_digest_sha256: None,
+                normalized_content_digest_sha256: None,
                 status: ApprovalStatus::Approved,
                 first_seen_at: now - TimeDelta::days(120),
                 hold_until: None,
@@ -175,6 +181,8 @@ impl ManifestCatalog {
                 resolved_target: "lodash@4.17.22".to_string(),
                 raw_digest_sha256: digest_for("npm-lodash-4.17.22-raw"),
                 normalized_digest_sha256: digest_for("npm-lodash-4.17.22-tree"),
+                content_digest_sha256: None,
+                normalized_content_digest_sha256: None,
                 status: ApprovalStatus::Pending,
                 first_seen_at: now - TimeDelta::hours(12),
                 hold_until: Some(now + TimeDelta::days(13)),
@@ -196,6 +204,8 @@ impl ManifestCatalog {
                 resolved_target: "requests==2.32.4".to_string(),
                 raw_digest_sha256: digest_for("pypi-requests-2.32.4-raw"),
                 normalized_digest_sha256: digest_for("pypi-requests-2.32.4-tree"),
+                content_digest_sha256: None,
+                normalized_content_digest_sha256: None,
                 status: ApprovalStatus::Approved,
                 first_seen_at: now - TimeDelta::days(30),
                 hold_until: None,
@@ -212,6 +222,8 @@ impl ManifestCatalog {
                 resolved_target: "serde@1.0.228".to_string(),
                 raw_digest_sha256: digest_for("cargo-serde-1.0.228-raw"),
                 normalized_digest_sha256: digest_for("cargo-serde-1.0.228-tree"),
+                content_digest_sha256: None,
+                normalized_content_digest_sha256: None,
                 status: ApprovalStatus::Approved,
                 first_seen_at: now - TimeDelta::days(10),
                 hold_until: None,
@@ -228,6 +240,8 @@ impl ManifestCatalog {
                 resolved_target: "github.com/gin-gonic/gin@v1.10.0".to_string(),
                 raw_digest_sha256: digest_for("go-gin-1.10.0-raw"),
                 normalized_digest_sha256: digest_for("go-gin-1.10.0-tree"),
+                content_digest_sha256: None,
+                normalized_content_digest_sha256: None,
                 status: ApprovalStatus::Approved,
                 first_seen_at: now - TimeDelta::days(8),
                 hold_until: None,
@@ -246,6 +260,8 @@ impl ManifestCatalog {
                 resolved_target: "tool-v2.0.0-archive".to_string(),
                 raw_digest_sha256: digest_for("archive-tool-2.0.0-raw"),
                 normalized_digest_sha256: digest_for("archive-tool-2.0.0-tree"),
+                content_digest_sha256: None,
+                normalized_content_digest_sha256: None,
                 status: ApprovalStatus::Blocked,
                 first_seen_at: now - TimeDelta::hours(3),
                 hold_until: Some(now + TimeDelta::days(14)),
@@ -330,6 +346,7 @@ impl ManifestCatalog {
                 record.ecosystem == coordinate.ecosystem
                     && record.source == coordinate.source
                     && record.requested_selector == coordinate.requested_selector
+                    && record.selector_kind == coordinate.selector_kind
             })
             .max_by_key(|record| {
                 (
@@ -379,6 +396,28 @@ impl ManifestCatalog {
             .filter(|record| record.source == source && record.status == ApprovalStatus::Approved)
             .max_by_key(|record| record.approved_at.unwrap_or(record.first_seen_at))
     }
+
+    pub fn approved_record_for_identity(
+        &self,
+        source: &str,
+        resolved_target: &str,
+        normalized_identity_sha256: &str,
+        content_digest_sha256: Option<&str>,
+    ) -> Option<&ManifestRecord> {
+        self.records
+            .iter()
+            .filter(|record| {
+                record.source == source
+                    && record.status == ApprovalStatus::Approved
+                    && record.resolved_target == resolved_target
+                    && record.normalized_digest_sha256 == normalized_identity_sha256
+                    && record
+                        .content_digest_sha256
+                        .as_deref()
+                        .is_none_or(|expected| Some(expected) == content_digest_sha256)
+            })
+            .max_by_key(|record| record.approved_at.unwrap_or(record.first_seen_at))
+    }
 }
 
 fn selector_matches(coordinate: &ArtifactCoordinate, record: &ManifestRecord) -> bool {
@@ -389,7 +428,7 @@ fn selector_matches(coordinate: &ArtifactCoordinate, record: &ManifestRecord) ->
         SelectorKind::Branch | SelectorKind::Tag => {
             record.requested_selector == coordinate.requested_selector
         }
-        SelectorKind::Floating | SelectorKind::Url => true,
+        SelectorKind::Floating | SelectorKind::Url | SelectorKind::Unspecified => true,
         SelectorKind::ExactVersion | SelectorKind::ExactCommit => {
             record.requested_selector == coordinate.requested_selector
         }
@@ -525,6 +564,8 @@ mod tests {
                 resolved_target: "old-pending".to_string(),
                 raw_digest_sha256: digest_for("old-pending"),
                 normalized_digest_sha256: digest_for("tree:old-pending"),
+                content_digest_sha256: None,
+                normalized_content_digest_sha256: None,
                 status: ApprovalStatus::Pending,
                 first_seen_at: now - TimeDelta::minutes(10),
                 hold_until: Some(now + TimeDelta::hours(1)),
@@ -541,6 +582,8 @@ mod tests {
                 resolved_target: "new-approved".to_string(),
                 raw_digest_sha256: digest_for("new-approved"),
                 normalized_digest_sha256: digest_for("tree:new-approved"),
+                content_digest_sha256: None,
+                normalized_content_digest_sha256: None,
                 status: ApprovalStatus::Approved,
                 first_seen_at: now,
                 hold_until: None,
@@ -554,5 +597,50 @@ mod tests {
         let record = catalog.find_exact(&coordinate).expect("record");
         assert_eq!(record.status, ApprovalStatus::Approved);
         assert_eq!(record.resolved_target, "new-approved");
+    }
+
+    #[test]
+    fn approved_identity_match_uses_content_digest_when_present() {
+        let now = Utc::now();
+        let catalog = ManifestCatalog::new(vec![ManifestRecord {
+            ecosystem: Ecosystem::Git,
+            source: "https://github.com/acme/approved.git".to_string(),
+            requested_selector: "deadbeef".to_string(),
+            selector_kind: SelectorKind::ExactCommit,
+            resolved_target: "deadbeef".to_string(),
+            raw_digest_sha256: digest_for("deadbeef"),
+            normalized_digest_sha256: digest_for("tree:deadbeef"),
+            content_digest_sha256: Some(digest_for("archive:deadbeef")),
+            normalized_content_digest_sha256: None,
+            status: ApprovalStatus::Approved,
+            first_seen_at: now,
+            hold_until: None,
+            approved_at: Some(now),
+            fallback: None,
+            detector_refs: vec![],
+            metadata: Default::default(),
+        }]);
+
+        assert!(
+            catalog
+                .approved_record_for_identity(
+                    "https://github.com/acme/approved.git",
+                    "deadbeef",
+                    &digest_for("tree:deadbeef"),
+                    Some(&digest_for("archive:deadbeef")),
+                )
+                .is_some()
+        );
+
+        assert!(
+            catalog
+                .approved_record_for_identity(
+                    "https://github.com/acme/approved.git",
+                    "deadbeef",
+                    &digest_for("tree:deadbeef"),
+                    Some(&digest_for("archive:other")),
+                )
+                .is_none()
+        );
     }
 }

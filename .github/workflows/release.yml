@@ -1,0 +1,85 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the leading v
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Install stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install release tooling
+        run: |
+          cargo install cargo-cyclonedx --locked
+
+      - name: Resolve release version
+        id: release_version
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify workspace version matches tag
+        run: |
+          EXPECTED="${{ steps.release_version.outputs.version }}"
+          ACTUAL="$(python3 - <<'PY'
+          import tomllib
+          with open('Cargo.toml', 'rb') as fh:
+              data = tomllib.load(fh)
+          print(data['workspace']['package']['version'])
+          PY
+          )"
+          test "${EXPECTED}" = "${ACTUAL}"
+
+      - name: Build release bundle
+        run: |
+          chmod +x scripts/build_release_bundle.sh scripts/render_release_notes.py
+          scripts/build_release_bundle.sh "${{ steps.release_version.outputs.version }}" x86_64-unknown-linux-gnu
+
+      - name: Render release notes
+        run: |
+          python3 scripts/render_release_notes.py "${{ steps.release_version.outputs.version }}" \
+            > "dist/release/RELEASE_NOTES.md"
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: zitpit-release-${{ steps.release_version.outputs.version }}
+          path: dist/release/*
+
+      - name: Attest release tarball
+        uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45
+        with:
+          subject-path: dist/release/zitpit-${{ steps.release_version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe
+        with:
+          body_path: dist/release/RELEASE_NOTES.md
+          files: |
+            dist/release/SHA256SUMS.txt
+            dist/release/zitpit-${{ steps.release_version.outputs.version }}-x86_64-unknown-linux-gnu-sboms.tar.gz
+            dist/release/zitpit-${{ steps.release_version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz

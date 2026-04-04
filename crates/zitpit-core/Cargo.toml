@@ -32,4 +32,5 @@ aho-corasick.workspace = true
 flate2.workspace = true
 tar.workspace = true
 zip.workspace = true
+shell-words.workspace = true
 zitpit-config = { path = "../zitpit-config" }

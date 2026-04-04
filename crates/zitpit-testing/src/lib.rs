@@ -1,11 +1,12 @@
 use std::{net::SocketAddr, time::Duration};
 
 use reqwest::Client;
+use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderValue};
 use tempfile::TempDir;
 use tokio::{net::TcpListener, task::JoinHandle, time::sleep};
 use zitpit_config::RuntimePaths;
 use zitpit_core::{
-    ArtifactBroker, FirecrackerOrchestrator, ManifestSigner, MemoryStore, StoreHandle,
+    ArtifactBroker, FirecrackerOrchestrator, ManifestSigner, MemoryStore, PolicyConfig, StoreHandle,
 };
 
 pub struct ServiceHandle {
@@ -30,6 +31,7 @@ pub struct TestHarness {
     pub tempdir: TempDir,
     pub paths: RuntimePaths,
     pub store: StoreHandle,
+    pub policy: PolicyConfig,
     pub client: Client,
     pub proxy: ServiceHandle,
     pub manifest: ServiceHandle,
@@ -56,22 +58,25 @@ pub async fn spawn() -> TestHarness {
     paths.ensure_dirs().expect("create runtime dirs");
 
     let store = seeded_store().await;
-    let client = Client::builder().build().expect("build client");
-
-    let policy = store
+    let mut policy = store
         .0
         .get_policy_snapshot()
         .await
         .expect("policy")
         .expect("seeded policy")
         .config;
+    policy.demo_mode = true;
+    let client = Client::builder()
+        .default_headers(admin_auth_headers(&policy.admin_auth_token))
+        .build()
+        .expect("build client");
 
     let proxy_state = zitpit_gateway::AppState {
         store: store.clone(),
-        broker: ArtifactBroker::new(store.clone(), policy.clone()),
+        broker: ArtifactBroker::with_paths(store.clone(), policy.clone(), paths.clone()),
         git_adapter: zitpit_core::GitSmartHttpAdapter::with_paths(store.clone(), paths.clone()),
         lockdown_mode: std::sync::Arc::new(std::sync::RwLock::new(policy.lockdown_mode)),
-        policy,
+        policy: policy.clone(),
         http_client: Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .build()
@@ -90,6 +95,7 @@ pub async fn spawn() -> TestHarness {
     };
     let node_state = zitpit_node_agent::AppState {
         store: store.clone(),
+        policy: policy.clone(),
     };
 
     let proxy = spawn_service("proxy", zitpit_gateway::build_admin_app(proxy_state)).await;
@@ -106,6 +112,7 @@ pub async fn spawn() -> TestHarness {
         tempdir,
         paths,
         store,
+        policy,
         client,
         proxy,
         manifest,
@@ -139,6 +146,16 @@ async fn wait_ready(client: &Client, base_url: &str) {
     panic!("service at {base_url} did not become healthy");
 }
 
+fn admin_auth_headers(token: &str) -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    let bearer = format!("Bearer {token}");
+    headers.insert(
+        AUTHORIZATION,
+        HeaderValue::from_str(&bearer).expect("valid bearer auth header"),
+    );
+    headers
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -156,8 +173,9 @@ mod tests {
     use uuid::Uuid;
     use zitpit_core::{
         ApprovalStatus, ArtifactBroker, ArtifactCoordinate, ArtifactKey, DetonationPersona,
-        DetonationScenario, Ecosystem, EvidenceEvent, GitHttpBackend, QuarantineStatus,
-        RequestObservation, SelectorHint, SelectorKind, TripwireEvaluator, TripwireKind, Verdict,
+        DetonationScenario, Ecosystem, EvidenceEvent, GitHttpBackend, ManifestRecord,
+        QuarantineStatus, RequestObservation, SelectorHint, SelectorKind, TripwireEvaluator,
+        TripwireKind, Verdict,
     };
 
     use super::*;
@@ -322,7 +340,8 @@ mod tests {
             .expect("policy lookup")
             .expect("seeded policy")
             .config;
-        let broker = ArtifactBroker::new(harness.store.clone(), policy);
+        let broker =
+            ArtifactBroker::with_paths(harness.store.clone(), policy, harness.paths.clone());
         let coordinate = ArtifactCoordinate {
             ecosystem: Ecosystem::Git,
             source: "https://github.com/jeppsontaylor/unknown.git".to_string(),
@@ -443,26 +462,14 @@ mod tests {
 
         let store = seeded_store().await;
         let source_url = "http://github.com/acme/proxy-demo.git".to_string();
-        store
-            .0
-            .upsert_manifest_record(zitpit_core::ManifestRecord {
-                ecosystem: Ecosystem::Git,
-                source: source_url.clone(),
-                requested_selector: "git-smart-http".to_string(),
-                selector_kind: SelectorKind::Floating,
-                resolved_target: "refs/heads/main".to_string(),
-                raw_digest_sha256: zitpit_core::manifest::digest_for("raw"),
-                normalized_digest_sha256: zitpit_core::manifest::digest_for("normalized"),
-                status: ApprovalStatus::Approved,
-                first_seen_at: Utc::now(),
-                hold_until: None,
-                approved_at: Some(Utc::now()),
-                fallback: None,
-                detector_refs: vec!["report://test/git".to_string()],
-                metadata: BTreeMap::new(),
-            })
-            .await
-            .expect("seed approved manifest");
+        seed_exact_git_approval(
+            &store,
+            &paths,
+            &source_url,
+            "acme/proxy-demo.git",
+            &upstream_repo_root,
+        )
+        .await;
 
         let policy = store
             .0
@@ -475,7 +482,7 @@ mod tests {
         let proxy_addr = SocketAddr::from(([127, 0, 0, 1], proxy_port));
         let proxy_state = zitpit_gateway::AppState {
             store: store.clone(),
-            broker: ArtifactBroker::new(store.clone(), policy.clone()),
+            broker: ArtifactBroker::with_paths(store.clone(), policy.clone(), paths.clone()),
             git_adapter: zitpit_core::GitSmartHttpAdapter::with_paths(store.clone(), paths),
             lockdown_mode: std::sync::Arc::new(std::sync::RwLock::new(policy.lockdown_mode)),
             policy: zitpit_core::PolicyConfig {
@@ -576,7 +583,7 @@ mod tests {
         let proxy_addr = SocketAddr::from(([127, 0, 0, 1], proxy_port));
         let proxy_state = zitpit_gateway::AppState {
             store: store.clone(),
-            broker: ArtifactBroker::new(store.clone(), policy.clone()),
+            broker: ArtifactBroker::with_paths(store.clone(), policy.clone(), paths.clone()),
             git_adapter: zitpit_core::GitSmartHttpAdapter::with_paths_and_hold_duration(
                 store.clone(),
                 paths,
@@ -726,26 +733,14 @@ mod tests {
 
         let store = seeded_store().await;
         let source_url = "http://github.com/acme/cache-demo.git".to_string();
-        store
-            .0
-            .upsert_manifest_record(zitpit_core::ManifestRecord {
-                ecosystem: Ecosystem::Git,
-                source: source_url.clone(),
-                requested_selector: "git-smart-http".to_string(),
-                selector_kind: SelectorKind::Floating,
-                resolved_target: "refs/heads/main".to_string(),
-                raw_digest_sha256: zitpit_core::manifest::digest_for("raw"),
-                normalized_digest_sha256: zitpit_core::manifest::digest_for("normalized"),
-                status: ApprovalStatus::Approved,
-                first_seen_at: Utc::now(),
-                hold_until: None,
-                approved_at: Some(Utc::now()),
-                fallback: None,
-                detector_refs: vec!["report://test/git-cache".to_string()],
-                metadata: BTreeMap::new(),
-            })
-            .await
-            .expect("seed approved manifest");
+        seed_exact_git_approval(
+            &store,
+            &paths,
+            &source_url,
+            "acme/cache-demo.git",
+            &upstream_repo_root,
+        )
+        .await;
 
         let policy = store
             .0
@@ -758,7 +753,7 @@ mod tests {
         let proxy_addr = SocketAddr::from(([127, 0, 0, 1], proxy_port));
         let proxy_state = zitpit_gateway::AppState {
             store: store.clone(),
-            broker: ArtifactBroker::new(store.clone(), policy.clone()),
+            broker: ArtifactBroker::with_paths(store.clone(), policy.clone(), paths.clone()),
             git_adapter: zitpit_core::GitSmartHttpAdapter::with_paths_and_hold_duration(
                 store.clone(),
                 paths,
@@ -823,14 +818,14 @@ mod tests {
                 .trace
                 .events
                 .iter()
-                .any(|event| event.kind == zitpit_core::ProxyTraceKind::FetchStarted)
+                .any(|event| event.kind == zitpit_core::ProxyTraceKind::CacheHit)
         );
         assert!(
             cache_requests[1]
                 .trace
                 .events
                 .iter()
-                .any(|event| event.kind == zitpit_core::ProxyTraceKind::CacheHit)
+                .any(|event| event.kind == zitpit_core::ProxyTraceKind::HotCacheHit)
         );
         assert!(second_elapsed <= first_elapsed);
 
@@ -880,7 +875,7 @@ mod tests {
             .expect("policy")
             .expect("seeded policy")
             .config;
-        let broker = ArtifactBroker::new(store.clone(), policy.clone());
+        let broker = ArtifactBroker::with_paths(store.clone(), policy.clone(), paths.clone());
         let proxy_port = free_tcp_port();
         let proxy_addr = SocketAddr::from(([127, 0, 0, 1], proxy_port));
         let proxy_state = zitpit_gateway::AppState {
@@ -917,22 +912,27 @@ mod tests {
             .await
             .expect("first request");
         assert_eq!(first.status(), StatusCode::SERVICE_UNAVAILABLE);
-
-        let resolved_target = run_capture(
-            Command::new("git")
-                .arg("--git-dir")
-                .arg(&upstream_repo_root)
-                .args(["rev-parse", "HEAD"]),
-        );
+        let pending_record = store
+            .0
+            .list_manifest_records()
+            .await
+            .expect("manifest records")
+            .into_iter()
+            .find(|record| {
+                record.source == "http://github.com/acme/retry-demo.git"
+                    && record.status == ApprovalStatus::Pending
+                    && record.selector_kind == SelectorKind::ExactCommit
+            })
+            .expect("pending exact git record");
         broker
             .promote_artifact(
                 ArtifactCoordinate {
                     ecosystem: Ecosystem::Git,
                     source: "http://github.com/acme/retry-demo.git".to_string(),
-                    requested_selector: "git-smart-http".to_string(),
-                    selector_kind: SelectorKind::Floating,
+                    requested_selector: pending_record.requested_selector.clone(),
+                    selector_kind: SelectorKind::ExactCommit,
                 },
-                resolved_target.trim().to_string(),
+                pending_record.resolved_target.clone(),
                 BTreeMap::from([("approved_by".to_string(), "test".to_string())]),
             )
             .await
@@ -1015,7 +1015,7 @@ mod tests {
             .expect("policy")
             .expect("seeded policy")
             .config;
-        let broker = ArtifactBroker::new(store.clone(), policy.clone());
+        let broker = ArtifactBroker::with_paths(store.clone(), policy.clone(), paths.clone());
         let proxy_port = free_tcp_port();
         let proxy_addr = SocketAddr::from(([127, 0, 0, 1], proxy_port));
         let proxy_state = zitpit_gateway::AppState {
@@ -1058,8 +1058,8 @@ mod tests {
                 ArtifactCoordinate {
                     ecosystem: Ecosystem::Git,
                     source: "http://github.com/acme/block-demo.git".to_string(),
-                    requested_selector: "git-smart-http".to_string(),
-                    selector_kind: SelectorKind::Floating,
+                    requested_selector: "__git_smart_http_request__".to_string(),
+                    selector_kind: SelectorKind::Unspecified,
                 },
                 BTreeMap::from([("blocked_by".to_string(), "test".to_string())]),
                 None,
@@ -1241,6 +1241,94 @@ mod tests {
                 .arg(workdir)
                 .arg(bare_repo),
         );
+    }
+
+    fn safe_repo_dir(source_url: &str) -> String {
+        zitpit_core::manifest::digest_for(source_url)[..16].to_string()
+    }
+
+    fn git_repo_identity(repo_root: &PathBuf) -> (String, String) {
+        let commit_id = run_capture(
+            Command::new("git")
+                .arg("--git-dir")
+                .arg(repo_root)
+                .args(["rev-parse", "HEAD"]),
+        );
+        let tree_id = run_capture(
+            Command::new("git")
+                .arg("--git-dir")
+                .arg(repo_root)
+                .args(["rev-parse", "HEAD^{tree}"]),
+        );
+        (commit_id, tree_id)
+    }
+
+    fn git_repo_content_digest(repo_root: &PathBuf) -> String {
+        let output = Command::new("git")
+            .arg("--git-dir")
+            .arg(repo_root)
+            .args(["archive", "--format=tar", "HEAD"])
+            .output()
+            .expect("git archive");
+        assert!(
+            output.status.success(),
+            "git archive failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let mut hasher = sha2::Sha256::new();
+        use sha2::Digest as _;
+        hasher.update(&output.stdout);
+        hex::encode(hasher.finalize())
+    }
+
+    async fn seed_exact_git_approval(
+        store: &StoreHandle,
+        paths: &RuntimePaths,
+        source_url: &str,
+        repo_path: &str,
+        upstream_repo_root: &PathBuf,
+    ) -> (String, String) {
+        let approved_repo_root = paths
+            .git_approved_root
+            .join(safe_repo_dir(source_url))
+            .join(repo_path);
+        if let Some(parent) = approved_repo_root.parent() {
+            fs::create_dir_all(parent).expect("approved parent");
+        }
+        run_git(
+            Command::new("git")
+                .args(["clone", "--mirror"])
+                .arg(upstream_repo_root)
+                .arg(&approved_repo_root),
+        );
+        let (commit_id, tree_id) = git_repo_identity(&approved_repo_root);
+        let content_digest = git_repo_content_digest(&approved_repo_root);
+        store
+            .0
+            .upsert_manifest_record(ManifestRecord {
+                ecosystem: Ecosystem::Git,
+                source: source_url.to_string(),
+                requested_selector: commit_id.clone(),
+                selector_kind: SelectorKind::ExactCommit,
+                resolved_target: commit_id.clone(),
+                raw_digest_sha256: zitpit_core::manifest::digest_for(&commit_id),
+                normalized_digest_sha256: zitpit_core::manifest::digest_for(&tree_id),
+                content_digest_sha256: Some(content_digest),
+                normalized_content_digest_sha256: None,
+                status: ApprovalStatus::Approved,
+                first_seen_at: Utc::now(),
+                hold_until: None,
+                approved_at: Some(Utc::now()),
+                fallback: None,
+                detector_refs: vec!["report://test/git-approved".to_string()],
+                metadata: BTreeMap::from([
+                    ("tree_id".to_string(), tree_id.clone()),
+                    ("repo_path".to_string(), repo_path.to_string()),
+                ]),
+            })
+            .await
+            .expect("seed exact git approval");
+        (commit_id, tree_id)
     }
 
     fn run_git(cmd: &mut Command) {

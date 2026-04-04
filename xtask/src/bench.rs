@@ -11,6 +11,7 @@ use chrono::Utc;
 use http_body_util::BodyExt;
 use reqwest::{Method, Url, header::HeaderMap};
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 use zitpit_config::RuntimePaths;
 use zitpit_core::{
     ApprovalStatus, ArtifactKey, CacheDomain, CacheEntry, Ecosystem, GitSmartHttpAdapter,
@@ -272,6 +273,21 @@ async fn time_cached_request(
     if body.is_empty() {
         bail!("cached request for {} returned an empty body", repo.name);
     }
+    if result.resolved_target.as_deref() != Some(resolved_head_sha) {
+        bail!(
+            "managed request for {} resolved {:?}, expected {}",
+            repo.name,
+            result.resolved_target,
+            resolved_head_sha
+        );
+    }
+    if !String::from_utf8_lossy(&body).contains(resolved_head_sha) {
+        bail!(
+            "managed smart-http response for {} did not advertise expected HEAD {}",
+            repo.name,
+            resolved_head_sha
+        );
+    }
     let sample = BenchmarkSample {
         repo: repo.name.to_string(),
         source_url: repo.source_url.to_string(),
@@ -341,84 +357,9 @@ async fn seed_approved_repo(
     if !repo_root.join("objects").exists() {
         fs::create_dir_all(repo_root.parent().context("repo root parent")?)?;
         println!("  seeding approved mirror for {}", repo.name);
-        let seed_workdir = repo_root
-            .parent()
-            .context("repo root parent")?
-            .join("seed-work");
-        if seed_workdir.exists() {
-            fs::remove_dir_all(&seed_workdir)?;
-        }
-        let init = Command::new("git")
-            .arg("init")
-            .arg(&seed_workdir)
-            .output()
-            .with_context(|| format!("seed approved workdir for {}", repo.name))?;
-        if !init.status.success() {
-            bail!(
-                "git init failed for {}: {}",
-                repo.name,
-                String::from_utf8_lossy(&init.stderr)
-            );
-        }
-        let config_email = Command::new("git")
-            .arg("-C")
-            .arg(&seed_workdir)
-            .args(["config", "user.email", "zitpit@example.com"])
-            .output()
-            .with_context(|| format!("seed approved git email for {}", repo.name))?;
-        if !config_email.status.success() {
-            bail!(
-                "git config user.email failed for {}: {}",
-                repo.name,
-                String::from_utf8_lossy(&config_email.stderr)
-            );
-        }
-        let config_name = Command::new("git")
-            .arg("-C")
-            .arg(&seed_workdir)
-            .args(["config", "user.name", "ZitPit Benchmark"])
-            .output()
-            .with_context(|| format!("seed approved git name for {}", repo.name))?;
-        if !config_name.status.success() {
-            bail!(
-                "git config user.name failed for {}: {}",
-                repo.name,
-                String::from_utf8_lossy(&config_name.stderr)
-            );
-        }
-        fs::write(
-            seed_workdir.join("README.md"),
-            format!("# {}\n\nbenchmark seed\n", repo.name),
-        )?;
-        let add = Command::new("git")
-            .arg("-C")
-            .arg(&seed_workdir)
-            .args(["add", "."])
-            .output()
-            .with_context(|| format!("seed approved git add for {}", repo.name))?;
-        if !add.status.success() {
-            bail!(
-                "git add failed for {}: {}",
-                repo.name,
-                String::from_utf8_lossy(&add.stderr)
-            );
-        }
-        let commit = Command::new("git")
-            .arg("-C")
-            .arg(&seed_workdir)
-            .args(["commit", "-m", "seed"])
-            .output()
-            .with_context(|| format!("seed approved git commit for {}", repo.name))?;
-        if !commit.status.success() {
-            bail!(
-                "git commit failed for {}: {}",
-                repo.name,
-                String::from_utf8_lossy(&commit.stderr)
-            );
-        }
         let output = Command::new("git")
             .args(["clone", "--mirror"])
-            .arg(&seed_workdir)
+            .arg(repo.source_url)
             .arg(&repo_root)
             .output()
             .with_context(|| format!("seed approved mirror for {}", repo.name))?;
@@ -429,14 +370,39 @@ async fn seed_approved_repo(
                 String::from_utf8_lossy(&output.stderr)
             );
         }
+    } else {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&repo_root)
+            .args(["remote", "update", "--prune"])
+            .output()
+            .with_context(|| format!("refresh approved mirror for {}", repo.name))?;
+        if !output.status.success() {
+            bail!(
+                "git remote update failed for {}: {}",
+                repo.name,
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
     }
     println!("  approved mirror ready for {}", repo.name);
 
+    let seeded_head_sha = resolve_repo_head_sha(&repo_root)?;
+    let seeded_tree_sha = resolve_repo_tree_sha(&repo_root)?;
+    let seeded_content_digest = resolve_repo_content_digest(&repo_root)?;
+    if seeded_head_sha != resolved_head_sha {
+        bail!(
+            "seeded mirror for {} resolved {}, expected {}",
+            repo.name,
+            seeded_head_sha,
+            resolved_head_sha
+        );
+    }
     let key = ArtifactKey {
         ecosystem: Ecosystem::Git,
         source: repo.source_url.to_string(),
-        requested_selector: "git-smart-http".to_string(),
-        selector_kind: SelectorKind::Floating,
+        requested_selector: resolved_head_sha.to_string(),
+        selector_kind: SelectorKind::ExactCommit,
     };
 
     store
@@ -447,7 +413,8 @@ async fn seed_approved_repo(
             storage_path: repo_root.display().to_string(),
             created_at: Utc::now(),
             size_bytes: None,
-            digest_sha256: digest_for(resolved_head_sha),
+            digest_sha256: digest_for(&seeded_head_sha),
+            content_digest_sha256: Some(seeded_content_digest.clone()),
         })
         .await?;
     store
@@ -455,11 +422,13 @@ async fn seed_approved_repo(
         .upsert_manifest_record(ManifestRecord {
             ecosystem: Ecosystem::Git,
             source: repo.source_url.to_string(),
-            requested_selector: "git-smart-http".to_string(),
-            selector_kind: SelectorKind::Floating,
+            requested_selector: resolved_head_sha.to_string(),
+            selector_kind: SelectorKind::ExactCommit,
             resolved_target: resolved_head_sha.to_string(),
             raw_digest_sha256: digest_for(resolved_head_sha),
-            normalized_digest_sha256: digest_for(&format!("{resolved_head_sha}:normalized")),
+            normalized_digest_sha256: digest_for(&seeded_tree_sha),
+            content_digest_sha256: Some(seeded_content_digest),
+            normalized_content_digest_sha256: None,
             status: ApprovalStatus::Approved,
             first_seen_at: Utc::now(),
             hold_until: None,
@@ -468,7 +437,7 @@ async fn seed_approved_repo(
             detector_refs: vec!["benchmark://approved-cache".to_string()],
             metadata: BTreeMap::from([
                 ("repo".to_string(), repo.name.to_string()),
-                ("mode".to_string(), "benchmark_seed".to_string()),
+                ("mode".to_string(), "benchmark_upstream_mirror".to_string()),
             ]),
         })
         .await?;
@@ -488,6 +457,57 @@ fn smart_http_request_url(source_url: &str) -> Result<Url> {
         "https://zitpit.invalid/{repo_path}/info/refs?service=git-upload-pack"
     ))
     .with_context(|| format!("build request url for {source_url}"))
+}
+
+fn resolve_repo_head_sha(repo_root: &Path) -> Result<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(repo_root)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .with_context(|| format!("resolve mirror HEAD for {}", repo_root.display()))?;
+    if !output.status.success() {
+        bail!(
+            "git rev-parse HEAD failed for {}: {}",
+            repo_root.display(),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+fn resolve_repo_tree_sha(repo_root: &Path) -> Result<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(repo_root)
+        .args(["rev-parse", "HEAD^{tree}"])
+        .output()
+        .with_context(|| format!("resolve mirror tree for {}", repo_root.display()))?;
+    if !output.status.success() {
+        bail!(
+            "git rev-parse HEAD^{{tree}} failed for {}: {}",
+            repo_root.display(),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+fn resolve_repo_content_digest(repo_root: &Path) -> Result<String> {
+    let output = Command::new("git")
+        .arg("--git-dir")
+        .arg(repo_root)
+        .args(["archive", "--format=tar", "HEAD"])
+        .output()
+        .with_context(|| format!("archive mirror tree for {}", repo_root.display()))?;
+    if !output.status.success() {
+        bail!(
+            "git archive HEAD failed for {}: {}",
+            repo_root.display(),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    Ok(hex::encode(sha2::Sha256::digest(&output.stdout)))
 }
 
 fn safe_repo_dir(source_url: &str) -> String {

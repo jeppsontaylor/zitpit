@@ -24,6 +24,14 @@ The current repository proves important parts of the control plane, not universa
 
 The source of truth for public claims is [`CLAIMS.md`](CLAIMS.md). The source of truth for proof families and status is [`BENCHMARKS.md`](BENCHMARKS.md).
 
+For a fast reviewer path, start with:
+
+- [`docs/evidence-index.md`](docs/evidence-index.md)
+- [`docs/deployment-hardening.md`](docs/deployment-hardening.md)
+- [`docs/release-verification.md`](docs/release-verification.md)
+- [`docs/contributor-map.md`](docs/contributor-map.md)
+- [`docs/glossary.md`](docs/glossary.md)
+
 ## Why This Boundary Matters Now
 
 AI IDEs and coding agents compress `discover -> fetch/open/install -> execute` into one low-observability loop.
@@ -174,15 +182,7 @@ See [`BENCHMARKS.md`](BENCHMARKS.md) for the exact proof boundary and claim clas
 > [!CAUTION]
 > The quickstart demonstrates the currently implemented Git-path, protected-session, and governed-egress workflow. Use [`BENCHMARKS.md`](BENCHMARKS.md) and [`CLAIMS.md`](CLAIMS.md) as the source of truth for what is proven today versus what remains roadmap work.
 
-### 1. Verification Bootstrap
-
-Bootstrap integrity check:
-
-```bash
-sh scripts/verify_hash.sh
-```
-
-### 2. Demo Orchestration
+### 1. Demo Orchestration
 
 ```bash
 cargo run -p xtask -- demo setup
@@ -200,6 +200,14 @@ Open the TUI:
 cargo run -p zitpit-tui
 ```
 
+### 2. CI-Aligned Smoke Path
+
+The same demo path exercised in CI is:
+
+```bash
+cargo run -p xtask -- demo smoke
+```
+
 ### 3. Battle-Test Suites
 
 ```bash
@@ -209,8 +217,10 @@ cargo run -p xtask -- battle egress
 cargo run -p xtask -- battle controls
 cargo run -p xtask -- battle fast
 cargo run -p xtask -- battle all
-cargo run -p xtask -- demo smoke
 ```
+
+> [!NOTE]
+> The old repository-hash bootstrap script is now explicitly demo-only scaffolding. The public release verification path lives in [`docs/release-verification.md`](docs/release-verification.md), while the old helper remains documented in [`docs/hash-verification.md`](docs/hash-verification.md).
 
 ## Roadmap and Community
 

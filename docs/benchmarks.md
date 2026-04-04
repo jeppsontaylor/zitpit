@@ -15,6 +15,7 @@ We measure three timing classes for Git intake:
 - approved disk-cache reuse
 - in-memory hot-cache reuse
 - resolved HEAD SHA capture for benchmarked repos
+- mirror identity validation between the seeded approved path and the claimed upstream target
 - median and p95 reporting for the current five-repo benchmark set
 
 Use [`BENCHMARKS.md`](../BENCHMARKS.md) as the source of truth for broader current-versus-roadmap claim boundaries across npm, PyPI, Cargo, GitHub Actions, raw HTTP installers, repo-open surfaces, and governed outbound DLP.
@@ -41,6 +42,8 @@ By default this writes:
 - `docs/benchmarks/latest.md`
 - `docs/benchmarks/latest.json`
 
+Those `latest.*` files are mutable working outputs. For citations, paper references, or public launch artifacts, also preserve a frozen snapshot under `docs/benchmarks/snapshots/`.
+
 You can narrow the repo set with repeated `--repo` flags and increase samples with `--samples`.
 
 Example:
@@ -54,4 +57,5 @@ cargo run -p xtask -- bench run --repo git --repo go --repo cpython --samples 3
 - Report median and p95 for each timing class.
 - Keep `web`, `cache`, and `hot-cache` separate.
 - Record the resolved HEAD SHA for each repo.
+- Fail the benchmark if the approved path is not identity-equivalent to the claimed upstream target.
 - Do not treat a battle pack or planned family as publicly claimed coverage unless [`BENCHMARKS.md`](../BENCHMARKS.md) says the current implementation supports that claim.

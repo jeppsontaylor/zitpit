@@ -14,6 +14,8 @@ Our goal is to publish a credible, review-resistant paper on **consumer-side sof
 - **[`publication-draft.md`](publication-draft.md)**: the readable companion synced to the canonical paper source
 - **[`../paper/main.tex`](../paper/main.tex)**: the LaTeX source for formal publication
 - **[`../paper/zitpit-v1.0-paper.pdf`](../paper/zitpit-v1.0-paper.pdf)**: the canonical packaged PDF artifact
+- **[`../docs/claim-matrix.yaml`](../docs/claim-matrix.yaml)**: machine-readable claim and proof status source
+- **[`../docs/evidence-index.md`](../docs/evidence-index.md)**: reviewer-oriented claim-to-evidence map
 - **[`references.md`](references.md)**: the research and related-work spine
 
 ## How to Collaborate
@@ -23,3 +25,5 @@ If you are a researcher or practitioner, we invite you to:
 1. Review the threat model and benchmark matrix.
 2. Suggest stronger claims, tighter limits, or additional evidence.
 3. Contribute adapters, battle packs, incident replays, and evaluation cases.
+
+The Markdown companion is intentionally checked against the canonical paper argument structure by repository validation scripts so it does not drift into a separate competing draft.

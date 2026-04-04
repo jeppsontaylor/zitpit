@@ -20,6 +20,7 @@ The `docs/` tree contains:
 
 - product reference docs
 - policy, architecture, trust, threat, and benchmark docs
+- public evidence, deployment, glossary, and contributor-map docs
 - clearly labeled archives such as review history and research notes
 
 Historical review material belongs in `docs/reviews/`.

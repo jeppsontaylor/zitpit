@@ -56,8 +56,24 @@ create table if not exists feed_records (
     payload jsonb not null
 );
 
+create table if not exists artifact_policy_events (
+    event_id uuid primary key,
+    artifact_key text not null,
+    created_at timestamptz not null,
+    payload jsonb not null
+);
+
+create table if not exists lockdown_overrides (
+    override_id uuid primary key,
+    created_at timestamptz not null,
+    payload jsonb not null
+);
+
 create index if not exists idx_captured_requests_observed_at
     on captured_requests (observed_at desc);
 
 create index if not exists idx_feed_records_first_seen_at
     on feed_records (first_seen_at desc);
+
+create index if not exists idx_artifact_policy_events_created_at
+    on artifact_policy_events (created_at desc);

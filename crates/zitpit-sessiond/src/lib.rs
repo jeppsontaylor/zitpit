@@ -22,28 +22,41 @@ pub fn run_interactive_session(tmux_bin: &str, tmux_conf: &str, session_name: &s
     }
 }
 
-pub fn run_managed_command(raw: &str, decision: &BehaviorDecision) -> Result<()> {
+pub fn run_managed_command(request: &BehaviorRequest, decision: &BehaviorDecision) -> Result<i32> {
     match decision.outcome {
         PolicyOutcome::Allow => {
-            let status = Command::new("/bin/zsh")
-                .args(["-lc", raw])
+            let command = request
+                .command
+                .as_ref()
+                .context("missing canonical command for allowed request")?;
+            if command.parse_error.is_some() {
+                bail!("protected mode cannot execute a command with shell metacharacters");
+            }
+            let binary = &command.binary_path;
+            let args = command.argv.iter().skip(1).cloned().collect::<Vec<_>>();
+            let mut process = Command::new(binary);
+            process.args(args).current_dir(&command.cwd);
+            for (name, value) in &command.env {
+                process.env(name, value);
+            }
+            let status = process
                 .status()
-                .with_context(|| format!("run allowed command: {raw}"))?;
+                .with_context(|| format!("run allowed command: {}", command.argv.join(" ")))?;
             if status.success() {
-                Ok(())
+                Ok(0)
             } else {
-                std::process::exit(status.code().unwrap_or(1));
+                Ok(status.code().unwrap_or(1))
             }
         }
         PolicyOutcome::Deny | PolicyOutcome::BrokerOnly | PolicyOutcome::Unsupported => {
             eprintln!("ZitPit blocked this command.");
             eprintln!("{}", decision.reason);
-            std::process::exit(126);
+            Ok(126)
         }
         PolicyOutcome::StepUp | PolicyOutcome::Quarantine => {
             eprintln!("ZitPit held this command for a stronger policy path.");
             eprintln!("{}", decision.reason);
-            std::process::exit(126);
+            Ok(126)
         }
     }
 }
@@ -64,7 +77,7 @@ pub fn append_audit_record(
         .with_context(|| format!("open audit log {}", path.display()))?;
     let record = AuditRecord {
         at: Utc::now(),
-        raw_command: raw.to_string(),
+        raw_command: redact_command(raw),
         request: request.clone(),
         decision: decision.clone(),
     };
@@ -78,4 +91,21 @@ struct AuditRecord {
     raw_command: String,
     request: BehaviorRequest,
     decision: BehaviorDecision,
+}
+
+fn redact_command(raw: &str) -> String {
+    let mut redacted = raw.to_string();
+    for marker in [
+        "Authorization:",
+        "authorization:",
+        "Bearer ",
+        "AWS_SECRET_ACCESS_KEY=",
+    ] {
+        if let Some(index) = redacted.find(marker) {
+            redacted.truncate(index + marker.len());
+            redacted.push_str("[REDACTED]");
+            break;
+        }
+    }
+    redacted
 }
