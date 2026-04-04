@@ -66,13 +66,14 @@ impl TripwireEvaluator {
         tripwires.sort();
         tripwires.dedup();
 
-        let verdict = if tripwires.iter().any(|kind| is_malicious_tripwire(*kind)) || tripwires.len() >= 2 {
-            Verdict::Malicious
-        } else if tripwires.is_empty() {
-            Verdict::Clean
-        } else {
-            Verdict::Suspicious
-        };
+        let verdict =
+            if tripwires.iter().any(|kind| is_malicious_tripwire(*kind)) || tripwires.len() >= 2 {
+                Verdict::Malicious
+            } else if tripwires.is_empty() {
+                Verdict::Clean
+            } else {
+                Verdict::Suspicious
+            };
 
         EvidenceRecord {
             artifact,

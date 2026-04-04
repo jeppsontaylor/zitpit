@@ -186,8 +186,6 @@ pub enum LockdownMode {
     BreakGlass,
 }
 
-
-
 impl LockdownMode {
     /// Whether unrecognized ProcessExec commands should be allowed (true) or brokered/denied (false)
     pub fn allows_ambiguous_process(self) -> bool {
