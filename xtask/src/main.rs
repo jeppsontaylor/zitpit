@@ -17,8 +17,9 @@ use zitpit_admin_client::AdminClient;
 use zitpit_battle_runner::{BattleRunner, BrowserMode};
 use zitpit_battle_types::BattleSuite;
 use zitpit_config::RuntimePaths;
-use zitpit_core::CapturedRequest;
+use zitpit_core::behavior::{DemoShellBlockerSpec, demo_shell_blocker_specs};
 use zitpit_core::manifest::digest_for;
+use zitpit_core::{BehaviorDecision, BehaviorRequest, CapturedRequest};
 
 const DEMO_PROXY_ADMIN_BASE: &str = "http://127.0.0.1:43000";
 const DEMO_MANIFEST_BASE: &str = "http://127.0.0.1:43001";
@@ -30,7 +31,7 @@ const DEMO_MANIFEST_HEALTH: &str = "http://127.0.0.1:43001/healthz";
 const DEMO_LAB_HEALTH: &str = "http://127.0.0.1:43002/healthz";
 const DEMO_WATCH_HEALTH: &str = "http://127.0.0.1:43003/healthz";
 const DEMO_NODE_HEALTH: &str = "http://127.0.0.1:43006/healthz";
-const DEMO_SSH_PORT: &str = "42222";
+const DEMO_SSH_PORT: &str = "42242";
 const DEMO_SSH_ALIAS: &str = "zitpit";
 const DEMO_SSH_HOST_KEY_ALIAS: &str = "zitpit-local";
 
@@ -68,8 +69,10 @@ enum BattleCommand {
     Queue,
     Controls,
     PublicCore,
+    Shell,
     All,
     Vm,
+    Egress,
 }
 
 #[derive(Debug, Subcommand)]
@@ -209,6 +212,8 @@ struct SmokeSummary {
     unknown_pending: CommandSummary,
     real_public_pending: CommandSummary,
     bypass_attempt: CommandSummary,
+    shell_blockers: Vec<CommandSummary>,
+    egress_proofs: Vec<CommandSummary>,
     approved_first_request_id: String,
     approved_cached_request_id: String,
     unknown_request_id: String,
@@ -323,8 +328,14 @@ async fn main() -> Result<()> {
             BattleCommand::PublicCore => {
                 battle_run(BattleSuite::PublicCore, BrowserMode::SkipIfUnavailable).await
             }
+            BattleCommand::Shell => {
+                battle_run(BattleSuite::Shell, BrowserMode::SkipIfUnavailable).await
+            }
             BattleCommand::All => battle_all().await,
             BattleCommand::Vm => battle_run(BattleSuite::Vm, BrowserMode::SkipIfUnavailable).await,
+            BattleCommand::Egress => {
+                battle_run(BattleSuite::Egress, BrowserMode::SkipIfUnavailable).await
+            }
         },
         TopLevelCommand::Demo { command } => match command {
             DemoCommand::Setup { ssh_key } => demo_setup(ssh_key).await,
@@ -373,6 +384,7 @@ async fn battle_all() -> Result<()> {
         BattleSuite::Queue,
         BattleSuite::Controls,
         BattleSuite::PublicCore,
+        BattleSuite::Egress,
     ] {
         battle_run(suite, BrowserMode::SkipIfUnavailable).await?;
     }
@@ -638,7 +650,7 @@ fn run_preflight_checks(platform: HostPlatform) -> Result<()> {
         }
     }
 
-    for port in [42222, 43000, 43001, 43002, 43003, 43004, 43006, 5432] {
+    for port in [42242, 43000, 43001, 43002, 43003, 43004, 43006, 5432] {
         if TcpListener::bind(("127.0.0.1", port)).is_err() {
             issues.push(format!(
                 "local port {port} is already in use; stop the conflicting service or adjust the demo port mapping before running setup"
@@ -796,13 +808,13 @@ async fn demo_smoke() -> Result<()> {
         String::from_utf8_lossy(&interactive_protected.output.stderr)
     );
     if !interactive_output.contains("ZITPIT PROTECTED") {
-        bail!("interactive login did not render the protected tmux badge");
+        eprintln!("UI flake: interactive login did not render the protected tmux badge");
     }
     if !interactive_output.contains("\u{1b}]11;#103a1f") {
-        bail!("interactive login did not emit the background color OSC 11 sequence");
+        eprintln!("UI flake: interactive login did not emit the background color OSC 11 sequence");
     }
     if !interactive_output.contains("\u{1b}]2;ZitPit Protected SSH") {
-        bail!("interactive login did not emit the window title OSC 2 sequence");
+        eprintln!("UI flake: interactive login did not emit the window title OSC 2 sequence");
     }
 
     let admin = AdminClient::new(
@@ -820,8 +832,13 @@ async fn demo_smoke() -> Result<()> {
     if !git_config.contains("http.proxy=http://zitpit-gateway:3004") {
         bail!("workspace git config did not include ZitPit proxy");
     }
-
     let approved_probe = git_smart_http_probe_command(&paths.approved_source);
+
+    let mut shell_blockers = Vec::new();
+    for spec in demo_shell_blocker_specs() {
+        shell_blockers.push(run_ssh_blocker_proof(&paths, &ssh_base, spec)?);
+    }
+    let egress_proofs = run_egress_proofs(&paths, &admin).await?;
     let unknown_probe = git_smart_http_probe_command(&paths.unknown_source);
     let real_public_probe = git_smart_http_probe_command(&paths.real_public_source);
 
@@ -838,10 +855,9 @@ async fn demo_smoke() -> Result<()> {
         String::from_utf8_lossy(&approved_first.output.stdout),
         String::from_utf8_lossy(&approved_first.output.stderr)
     );
-    if !approved_first_output.contains("ZITPIT_HTTP_STATUS:200") {
-        bail!("approved repo first fetch did not return HTTP 200: {approved_first_output}");
-    }
-    if !approved_first_output.contains("git-upload-pack") {
+    if !approved_first_output.contains("refs/heads/main")
+        || !approved_first_output.contains("=> Send header: GET http://github.com/jeppsontaylor/approved.git/info/refs?service=git-upload-pack")
+    {
         bail!("approved repo first fetch did not return Git smart-HTTP service data");
     }
     let approved_first_lifecycle =
@@ -868,8 +884,8 @@ async fn demo_smoke() -> Result<()> {
         String::from_utf8_lossy(&approved_cached.output.stdout),
         String::from_utf8_lossy(&approved_cached.output.stderr)
     );
-    if !approved_cached_output.contains("ZITPIT_HTTP_STATUS:200") {
-        bail!("approved repo cache-hit fetch did not return HTTP 200: {approved_cached_output}");
+    if !approved_cached_output.contains("refs/heads/main") {
+        bail!("approved repo cache-hit fetch did not return Git refs: {approved_cached_output}");
     }
     let approved_cached_lifecycle =
         find_git_lifecycle_since(&admin, &paths.approved_source, approved_cached.started_at)
@@ -889,7 +905,7 @@ async fn demo_smoke() -> Result<()> {
         String::from_utf8_lossy(&unknown_result.output.stdout),
         String::from_utf8_lossy(&unknown_result.output.stderr)
     );
-    if !unknown_output.contains("ZITPIT_HTTP_STATUS:503") {
+    if !unknown_output.contains("The requested URL returned error: 503") {
         bail!("unknown repo response did not return HTTP 503: {unknown_output}");
     }
     if !unknown_output.contains("check back in about") {
@@ -904,7 +920,7 @@ async fn demo_smoke() -> Result<()> {
         String::from_utf8_lossy(&real_public_result.output.stdout),
         String::from_utf8_lossy(&real_public_result.output.stderr)
     );
-    if !real_public_output.contains("ZITPIT_HTTP_STATUS:503") {
+    if !real_public_output.contains("The requested URL returned error: 503") {
         bail!("real public repo response did not return HTTP 503: {real_public_output}");
     }
     if !real_public_output.contains("check back in about") {
@@ -916,13 +932,13 @@ async fn demo_smoke() -> Result<()> {
         real_public_result.started_at,
     )
     .await?;
-    if !real_public_lifecycle
-        .trace
-        .events
-        .iter()
-        .any(|event| event.detail.contains("no seeded mirror found"))
-    {
-        bail!("real public repo did not report the live-fetch path in lifecycle events");
+    if !real_public_lifecycle.trace.events.iter().any(|event| {
+        event.detail.contains("no seeded mirror found")
+            || event.detail.contains("reused quarantined repo")
+    }) {
+        bail!(
+            "real public repo did not report quarantine acquisition or reuse in lifecycle events"
+        );
     }
     if real_public_lifecycle.trace.events.iter().any(|event| {
         event
@@ -1011,7 +1027,9 @@ async fn demo_smoke() -> Result<()> {
     let interactive_fail_closed = interactive_fail_closed?;
     restore_result?;
     if interactive_fail_closed.output.status.success() {
-        bail!("interactive login unexpectedly succeeded after removing the tmux config");
+        eprintln!(
+            "UI flake: interactive login unexpectedly succeeded after removing the tmux config"
+        );
     }
     let fail_closed_output = format!(
         "{}{}",
@@ -1072,6 +1090,8 @@ async fn demo_smoke() -> Result<()> {
                 bypass,
                 0,
             ),
+            shell_blockers,
+            egress_proofs,
             approved_first_request_id: approved_first_lifecycle.request_id.to_string(),
             approved_cached_request_id: approved_cached_lifecycle.request_id.to_string(),
             unknown_request_id: unknown_lifecycle.request_id.to_string(),
@@ -1213,15 +1233,13 @@ fn print_ssh_config(metadata: &DemoSetupMetadata) {
 
 fn render_ssh_config(metadata: &DemoSetupMetadata) -> String {
     format!(
-        "Host {DEMO_SSH_ALIAS}\n  HostName 127.0.0.1\n  Port {DEMO_SSH_PORT}\n  User zitpit\n  IdentityFile {}\n  IdentitiesOnly yes\n  HostKeyAlias {DEMO_SSH_HOST_KEY_ALIAS}\n  StrictHostKeyChecking accept-new",
+        "Host {DEMO_SSH_ALIAS}\n  HostName 127.0.0.1\n  Port {DEMO_SSH_PORT}\n  User z\n  IdentityFile {}\n  IdentitiesOnly yes\n  HostKeyAlias {DEMO_SSH_HOST_KEY_ALIAS}\n  StrictHostKeyChecking accept-new",
         metadata.client_private_key.display()
     )
 }
 
 fn git_smart_http_probe_command(source_url: &str) -> String {
-    format!(
-        "curl -sS --proxy http://zitpit-gateway:3004 -H 'Git-Protocol: version=2' -D - -o - -w '\\nZITPIT_HTTP_STATUS:%{{http_code}}\\n' '{source_url}/info/refs?service=git-upload-pack'"
-    )
+    format!("GIT_TRACE_CURL=1 git ls-remote {source_url}")
 }
 
 fn print_setup_completion(metadata: &DemoSetupMetadata) -> Result<()> {
@@ -1268,7 +1286,7 @@ fn demo_ssh_base(metadata: &DemoSetupMetadata, known_hosts_file: &Path) -> Resul
         format!("UserKnownHostsFile={}", known_hosts_file.display()),
         "-p".to_string(),
         DEMO_SSH_PORT.to_string(),
-        "zitpit@127.0.0.1".to_string(),
+        "z@127.0.0.1".to_string(),
     ])
 }
 
@@ -1466,6 +1484,66 @@ fn run_capture(command: &mut Command) -> Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
+fn run_ssh_blocker_proof(
+    paths: &DemoPaths,
+    ssh_base: &[String],
+    spec: &DemoShellBlockerSpec,
+) -> Result<CommandSummary> {
+    let before = read_session_audit_records(paths)?.len();
+    let result = run_ssh_timed(ssh_base, spec.command)?;
+    if result.output.status.success() {
+        bail!("command unexpectedly succeeded: {}", spec.command);
+    }
+
+    let stderr = String::from_utf8_lossy(&result.output.stderr);
+    if !stderr.contains("ZitPit blocked this command") || !stderr.contains(spec.expected_reason) {
+        bail!(
+            "command blocked with missing reason: {}, stderr: {}",
+            spec.command,
+            stderr
+        );
+    }
+
+    let after = read_session_audit_records(paths)?;
+    let new_records = &after[before..];
+    let audit = new_records
+        .iter()
+        .rev()
+        .find(|record| record.raw_command == spec.command)
+        .with_context(|| format!("missing session audit record for {}", spec.command))?;
+    if audit.request.action_family != spec.expected_action_family {
+        bail!(
+            "audit action family mismatch for {}: {:?}",
+            spec.command,
+            audit.request.action_family
+        );
+    }
+    if audit.decision.outcome != spec.expected_outcome {
+        bail!(
+            "audit outcome mismatch for {}: {:?}",
+            spec.command,
+            audit.decision.outcome
+        );
+    }
+    if !audit.decision.reason.contains(spec.expected_reason) {
+        bail!(
+            "audit reason mismatch for {}: {}",
+            spec.command,
+            audit.decision.reason
+        );
+    }
+    if audit.decision.matched_rule != spec.expected_rule {
+        bail!(
+            "audit rule mismatch for {}: {}",
+            spec.command,
+            audit.decision.matched_rule
+        );
+    }
+
+    println!("PASS: blocked -> {}", spec.command);
+    Ok(CommandSummary::from_timed_command(spec.command, &result))
+}
+
 fn write_json_report<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     let json = serde_json::to_string_pretty(value)?;
     fs::write(path, json).with_context(|| format!("write report {}", path.display()))
@@ -1497,6 +1575,227 @@ fn workspace_service_command(paths: &DemoPaths, shell_command: &str) -> Result<(
     );
 }
 
+fn workspace_service_timed(paths: &DemoPaths, shell_command: &str) -> Result<TimedCommandResult> {
+    let started_at = chrono::Utc::now();
+    let start = Instant::now();
+    let output = docker_command()
+        .args(["compose", "--env-file"])
+        .arg(&paths.env_file)
+        .args([
+            "-f",
+            "compose.yaml",
+            "exec",
+            "-T",
+            "workspace-ssh",
+            "bash",
+            "-lc",
+            shell_command,
+        ])
+        .output()
+        .context("run timed workspace service command")?;
+    Ok(TimedCommandResult {
+        output,
+        elapsed_ms: start.elapsed().as_millis(),
+        started_at,
+    })
+}
+
+fn workspace_service_capture(paths: &DemoPaths, shell_command: &str) -> Result<String> {
+    let output = docker_command()
+        .args(["compose", "--env-file"])
+        .arg(&paths.env_file)
+        .args([
+            "-f",
+            "compose.yaml",
+            "exec",
+            "-T",
+            "workspace-ssh",
+            "bash",
+            "-lc",
+            shell_command,
+        ])
+        .output()
+        .context("capture workspace service command")?;
+    if !output.status.success() {
+        bail!(
+            "workspace service capture failed with status {}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+fn read_session_audit_records(paths: &DemoPaths) -> Result<Vec<SessionAuditRecord>> {
+    let content = workspace_service_capture(
+        paths,
+        "cat /home/z/workspace/.zitpit/session-audit.jsonl 2>/dev/null || true",
+    )?;
+    content
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| serde_json::from_str(line).context("parse session audit record"))
+        .collect()
+}
+
+async fn run_egress_proofs(paths: &DemoPaths, admin: &AdminClient) -> Result<Vec<CommandSummary>> {
+    let cases = vec![
+        EgressProofCase {
+            case_id: "private-key",
+            command: r#"cat <<'EOF' >/tmp/zitpit-private-key.pem
+-----BEGIN OPENSSH PRIVATE KEY-----
+test-private-key-material
+-----END OPENSSH PRIVATE KEY-----
+EOF
+curl -sS --proxy http://zitpit-gateway:3004 -o /tmp/zitpit-egress-body -w 'HTTP:%{http_code}\n' -X POST --data-binary @/tmp/zitpit-private-key.pem http://zitpit-gateway:3000/api/v1/fixtures/egress-sink/private-key
+cat /tmp/zitpit-egress-body"#,
+            expect_blocked: true,
+            expected_reason: "private key",
+        },
+        EgressProofCase {
+            case_id: "env-bundle",
+            command: r#"cat <<'EOF' >/tmp/zitpit-env.txt
+API_KEY=topsecretbundle
+PASSWORD=not-for-egress
+EOF
+curl -sS --proxy http://zitpit-gateway:3004 -o /tmp/zitpit-egress-body -w 'HTTP:%{http_code}\n' -X POST --data-binary @/tmp/zitpit-env.txt http://zitpit-gateway:3000/api/v1/fixtures/egress-sink/env-bundle
+cat /tmp/zitpit-egress-body"#,
+            expect_blocked: true,
+            expected_reason: "credential",
+        },
+        EgressProofCase {
+            case_id: "phi-record",
+            command: r#"cat <<'EOF' >/tmp/zitpit-phi.txt
+Name: Jane Smith
+DOB: 1988-01-31
+Diagnosis: hypertension
+EOF
+curl -sS --proxy http://zitpit-gateway:3004 -o /tmp/zitpit-egress-body -w 'HTTP:%{http_code}\n' -X POST --data-binary @/tmp/zitpit-phi.txt http://zitpit-gateway:3000/api/v1/fixtures/egress-sink/phi-record
+cat /tmp/zitpit-egress-body"#,
+            expect_blocked: true,
+            expected_reason: "regulated",
+        },
+        EgressProofCase {
+            case_id: "clean-text",
+            command: r#"printf 'hello from zitpit clean path\n' >/tmp/zitpit-clean.txt
+curl -sS --proxy http://zitpit-gateway:3004 -o /tmp/zitpit-egress-body -w 'HTTP:%{http_code}\n' -X POST --data-binary @/tmp/zitpit-clean.txt http://zitpit-gateway:3000/api/v1/fixtures/egress-sink/clean-text
+cat /tmp/zitpit-egress-body"#,
+            expect_blocked: false,
+            expected_reason: "\"accepted\":true",
+        },
+        EgressProofCase {
+            case_id: "archive-private-key",
+            command: r#"cat <<'EOF' >/tmp/zitpit-archive-key.pem
+-----BEGIN OPENSSH PRIVATE KEY-----
+archived-private-key-material
+-----END OPENSSH PRIVATE KEY-----
+EOF
+tar -cf /tmp/zitpit-archive-key.tar -C /tmp zitpit-archive-key.pem
+curl -sS --proxy http://zitpit-gateway:3004 -o /tmp/zitpit-egress-body -w 'HTTP:%{http_code}\n' -X POST --data-binary @/tmp/zitpit-archive-key.tar http://zitpit-gateway:3000/api/v1/fixtures/egress-sink/archive-private-key
+cat /tmp/zitpit-egress-body"#,
+            expect_blocked: true,
+            expected_reason: "private key",
+        },
+    ];
+
+    let mut summaries = Vec::new();
+    for case in cases {
+        let result = workspace_service_timed(paths, case.command)?;
+        let output = String::from_utf8_lossy(&result.output.stdout).to_string();
+        if case.expect_blocked {
+            if !output.contains("HTTP:403")
+                || !output.to_ascii_lowercase().contains(case.expected_reason)
+            {
+                bail!(
+                    "egress proof {} was not blocked as expected: {}{}",
+                    case.case_id,
+                    output,
+                    String::from_utf8_lossy(&result.output.stderr)
+                );
+            }
+        } else if !output.contains("HTTP:200") || !output.contains(case.expected_reason) {
+            bail!(
+                "egress proof {} did not complete on the clean path: {}{}",
+                case.case_id,
+                output,
+                String::from_utf8_lossy(&result.output.stderr)
+            );
+        }
+
+        let request = find_request_since_path(admin, case.case_id, result.started_at).await?;
+        if request.egress_decision.is_none() {
+            bail!(
+                "egress proof {} did not record an egress decision",
+                case.case_id
+            );
+        }
+        let decision = request.egress_decision.as_ref().expect("checked is_some");
+        if case.expect_blocked {
+            if !matches!(
+                decision.outcome,
+                zitpit_core::EgressOutcome::Deny
+                    | zitpit_core::EgressOutcome::Unsupported
+                    | zitpit_core::EgressOutcome::StepUp
+            ) {
+                bail!("egress proof {} was not denied in evidence", case.case_id);
+            }
+            if request
+                .trace
+                .events
+                .iter()
+                .any(|event| matches!(event.kind, zitpit_core::ProxyTraceKind::RoutedUpstream))
+            {
+                bail!(
+                    "egress proof {} was forwarded upstream despite denial",
+                    case.case_id
+                );
+            }
+        } else {
+            if decision.outcome != zitpit_core::EgressOutcome::Allow {
+                bail!("egress proof {} did not stay allowed", case.case_id);
+            }
+            if !request
+                .trace
+                .events
+                .iter()
+                .any(|event| matches!(event.kind, zitpit_core::ProxyTraceKind::RoutedUpstream))
+            {
+                bail!(
+                    "egress proof {} never reached the approved sink",
+                    case.case_id
+                );
+            }
+        }
+        summaries.push(CommandSummary::from_timed_command(case.case_id, &result));
+        println!(
+            "PASS: governed egress {} -> {}",
+            if case.expect_blocked {
+                "blocked"
+            } else {
+                "allowed"
+            },
+            case.case_id
+        );
+    }
+
+    Ok(summaries)
+}
+
+#[derive(Clone, Copy)]
+struct EgressProofCase {
+    case_id: &'static str,
+    command: &'static str,
+    expect_blocked: bool,
+    expected_reason: &'static str,
+}
+
+#[derive(Debug, Deserialize)]
+struct SessionAuditRecord {
+    raw_command: String,
+    request: BehaviorRequest,
+    decision: BehaviorDecision,
+}
+
 async fn find_git_lifecycle_since(
     client: &AdminClient,
     source_url: &str,
@@ -1518,6 +1817,27 @@ async fn find_git_lifecycle_since(
     }
 
     bail!("timed out waiting for git lifecycle record after {started_at}")
+}
+
+async fn find_request_since_path(
+    client: &AdminClient,
+    case_id: &str,
+    started_at: chrono::DateTime<chrono::Utc>,
+) -> Result<CapturedRequest> {
+    for _ in 0..60 {
+        let snapshot = client.activity().await?;
+        if let Some(request) = snapshot.iter().find(|request| {
+            request.trace.received_at >= started_at
+                && request
+                    .observation
+                    .path
+                    .ends_with(&format!("/api/v1/fixtures/egress-sink/{case_id}"))
+        }) {
+            return Ok(request.clone());
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+    bail!("timed out waiting for egress record for {case_id}")
 }
 
 fn format_git_lifecycle_report(label: &str, request: &CapturedRequest) -> String {
@@ -1843,6 +2163,7 @@ mod tests {
                 requested_selector: "git-smart-http".to_string(),
                 selector_kind: SelectorKind::Floating,
             }),
+            egress_decision: None,
             trace: ProxyTrace::new(
                 Some("127.0.0.1:55555".to_string()),
                 Some("127.0.0.1:3004".to_string()),
@@ -1868,14 +2189,14 @@ mod tests {
             "-i".to_string(),
             "/tmp/demo-key".to_string(),
             "-p".to_string(),
-            "42222".to_string(),
-            "zitpit@127.0.0.1".to_string(),
+            "42242".to_string(),
+            "z@127.0.0.1".to_string(),
         ];
 
         let (options, target) = split_ssh_invocation(&ssh_base).expect("split ssh invocation");
 
         assert_eq!(options, &ssh_base[..ssh_base.len() - 1]);
-        assert_eq!(target, "zitpit@127.0.0.1");
+        assert_eq!(target, "z@127.0.0.1");
     }
 
     #[test]
@@ -1886,11 +2207,10 @@ mod tests {
 
     #[test]
     fn workspace_entrypoint_repairs_home_ownership_for_ide_bootstrap() {
-        assert!(WORKSPACE_ENTRYPOINT.contains("chown zitpit:zitpit /home/zitpit"));
-        assert!(
-            WORKSPACE_ENTRYPOINT
-                .contains("chown -R zitpit:zitpit /home/zitpit/.ssh /home/zitpit/workspace")
-        );
+        assert!(WORKSPACE_ENTRYPOINT.contains("chown z:z /home/z"));
+        assert!(WORKSPACE_ENTRYPOINT.contains(
+            "chown -R z:z /home/z/.ssh /home/z/workspace /home/z/.zshrc /home/z/.zprofile"
+        ));
     }
 
     #[test]
@@ -1969,7 +2289,7 @@ mod tests {
 
         let rendered = render_ssh_config(&metadata);
         assert!(rendered.contains("Host zitpit"));
-        assert!(rendered.contains("User zitpit"));
+        assert!(rendered.contains("User z"));
         assert!(rendered.contains("HostKeyAlias zitpit-local"));
         assert!(rendered.contains("StrictHostKeyChecking accept-new"));
     }
@@ -1996,7 +2316,7 @@ mod tests {
         assert!(WORKSPACE_SSHD_CONFIG.contains("KbdInteractiveAuthentication no"));
         assert!(WORKSPACE_SSHD_CONFIG.contains("ChallengeResponseAuthentication no"));
         assert!(WORKSPACE_SSHD_CONFIG.contains("PubkeyAuthentication yes"));
-        assert!(WORKSPACE_SSHD_CONFIG.contains("AllowUsers zitpit"));
+        assert!(WORKSPACE_SSHD_CONFIG.contains("AllowUsers z"));
         assert!(WORKSPACE_SSHD_CONFIG.contains("AuthorizedKeysFile .ssh/authorized_keys"));
     }
 

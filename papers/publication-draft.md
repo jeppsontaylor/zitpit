@@ -1,184 +1,178 @@
-# ZitPit: The Artifact Firewall for Agentic Software Supply Chains
+# ZitPit: Consumer-Side Admission Control for Agentic Software Intake
 
-*Turning first-seen code into policy events*
+*Turning first-seen external artifacts into policy events*
 
-> ZitPit is a shorthand for making small supply-chain blemishes visible before they spread.
+This Markdown file is the readable companion to the canonical paper source in [`paper/main.tex`](../paper/main.tex). It is intentionally kept in sync with the paper’s argument structure and claim boundary rather than evolving as a separate draft.
 
 ## Abstract
 
-AI-assisted development turns dependency intake into machine-speed execution. ZitPit is a mandatory artifact firewall that forces external code through exact-digest admission, provenance-aware policy, and quarantine before it may execute on protected developer or CI hosts. In the current public benchmark snapshot, five public Git repositories show `web` medians of 433-1062 ms, approved disk-cache medians of 32-44 ms, and hot-cache medians of 13-16 ms, with `N=5` samples per repo. ZitPit uses that speed delta to make **the safe path the fast path**: first-seen artifacts are policy events, approved artifacts stay local and fast, and repo-open surfaces such as `.claude/`, `.mcp.json`, and devcontainers are treated as supply-chain input rather than ambient workspace state.
+AI IDEs and coding agents compress discovery, fetch, workspace open, installation, and execution into one low-observability loop. Existing defenses such as provenance frameworks, package and repository firewalls, runtime protection, and tool-approval prompts each cover part of that path, but they often leave the final consumer-side execution decision implicit. ZitPit argues for a stricter boundary: first-seen external artifacts should become durable policy events before they gain execution rights on protected developer or CI hosts. The current public evidence is intentionally narrow and explicit: repeated Git smart-HTTP intake measurements, implemented protected-session enforcement families, and governed outbound DLP proof families. The broader contribution is architectural rather than universal-coverage-by-assertion: ZitPit unifies artifact admission, repo-open state, capability-scoped execution, and durable policy records at the consumer execution boundary for agentic workflows.
 
 ## 1. Introduction
 
-Agentic software development compresses the time between code discovery, dependency resolution, and execution. That compression is productive, but it also gives attackers and accidental leaks less time to be noticed. An AI agent can search the internet, clone a repository, install dependencies, open a workspace, and invoke tools faster than a human can manually review the path it is about to take.
+Agentic development has changed the tempo of software intake. A developer can ask an AI IDE to set up a repository, and the tool may immediately clone code, open project memory files, attach MCP servers, evaluate workspace configuration, install dependencies, run build hooks, and invoke helper scripts before a human reaches a durable review checkpoint.
 
-The result is a new default: packages, workflow refs, install scripts, shell bootstrap code, and repo-open configuration now arrive at machine speed. Recent public incidents across npm, PyPI, and agent tooling show the same pattern from different angles: account takeovers can turn installs into execution, build misconfigurations can leak source or metadata, and source-controlled agent configuration can be part of the supply chain. Anthropic's own [Claude Code getting started](https://docs.anthropic.com/en/docs/claude-code/getting-started) page shows npm installation, its [security page](https://docs.anthropic.com/en/docs/claude-code/security) notes that allowed MCP servers are configured in source control, and its [MCP](https://docs.anthropic.com/en/docs/claude-code/mcp) and [devcontainer](https://docs.anthropic.com/en/docs/claude-code/devcontainer) docs show that workspace configuration and outbound access are policy surfaces. GitHub Security Lab advisories likewise continue to catalog workflow leaks and poisoned-pipeline patterns.
+That creates a consumer-side problem. Provenance systems can describe identity and build lineage. Package and repository firewalls can screen specific ecosystems. Runtime protection can watch after code starts executing. Tool-approval prompts can restrict some actions. But in agentic workflows these controls often still stop short of one durable question:
 
-ZitPit is built around a simple premise: **the safe path must be the fast path**. Unknown external code should not execute on a protected host until it has been resolved to an immutable identity, checked against policy, and either approved or quarantined. Approved artifacts should be faster than the public network, not slower.
+**Has this exact first-seen external artifact earned execution rights on this protected host, under this policy, in this context?**
 
-### 1.1 Thesis
+ZitPit’s thesis is:
 
-ZitPit is a mandatory artifact intake gate, not a Git proxy or a honeypot-first system. Its job is to convert first-seen external code from an execution event into a policy event.
+> **ZitPit is a consumer-side software admission control layer for agentic development. First-seen external artifacts must earn execution rights under durable policy before they affect a protected host.**
 
-## 2. Consumer Intake vs Producer Release
+The contribution is not the claim that ZitPit already closes every package manager, IDE, workflow engine, or runtime path. The contribution is narrower and more defensible: ZitPit identifies a missing enforcement boundary for agentic development and shows preliminary public evidence that this boundary can be made visible, policy-scoped, and fast enough to be deployable.
 
-The criticism that shaped the current architecture was useful because it exposed a distinction the first draft blurred: consumer-side intake attacks and producer-side release failures are related but not identical problems.
+## 2. Why Admission Control Matters
 
-### 2.1 Consumer-side intake attacks
+This boundary matters for five reasons:
 
-These are the cases ZitPit is designed to stop or contain on protected developer and CI hosts:
+1. Provenance only matters when a consumer-side system turns it into an execution decision.
+2. Repo-open state matters because opening a repository can change tool behavior before durable review.
+3. Capability-scoped verdicts matter because fetch, build, test, and host execution are different trust decisions.
+4. The safe path must be faster than unmanaged public fetch, or mandatory controls will be bypassed.
+5. Durable policy events create the missing join key for recall, audit, and later incident reconstruction.
 
-- malicious registry publishes
-- install-time and build-time scripts
-- repo-controlled execution surfaces
-- agent tool bypass attempts
-- rollback, freeze, and stale-fallback attacks
-- raw HTTP installer fetches
-- mutable refs that should never have been treated as trustworthy defaults
+ZitPit does not claim to invent application control, sandboxing, or provenance. Its narrower novelty claim is that it unifies artifact admission, repo-open state, capability-scoped execution, and durable policy events at the consumer execution boundary for agentic workflows.
 
-### 2.2 Producer-side release failures
+## 3. Current Proof Boundary
 
-These are different. A source-map leak, wrong-registry publish, or packaging drift is a publisher-side failure. ZitPit can help with a publish firewall, but the consumer-side firewall is not a substitute for release hygiene. The paper must keep that boundary explicit so we do not overclaim on Claude Code-style packaging failures.
+The current public evidence boundary is intentionally explicit.
 
-## 3. Architecture
+| Surface | Current public evidence | Status | Supported claim |
+| --- | --- | --- | --- |
+| Git smart-HTTP intake | Repeated five-repository benchmark harness | `Implemented` | Approved immutable Git intake can stay faster than unmanaged public fetch |
+| Brokered protected-session enforcement families | Docker demo + battle packs | `Implemented` | Protected sessions can deny selected high-value command families before execution |
+| Governed outbound DLP | Demo smoke proofs + egress battle packs | `Implemented` | Governed egress can block selected sensitive outbound data before transmission |
+| Rust build-time execution | Battle harness coverage for `build.rs`-style scenarios | `Partial` | Build-time execution can be modeled as a separate capability boundary |
+| GitHub Actions immutable-ref enforcement | Threat-model + scenario coverage | `Partial` | Workflow references should resolve to immutable identities before execution |
+| npm / PyPI / raw installer mediation | Benchmark matrix + roadmap targets only | `Planned` | Current paper does not claim package-manager-complete mediation |
+| Repo-open enforcement depth | Threat model, policy model, and roadmap targets | `Planned` | Repo-open state is in scope, but host-side closure is not yet fully proven |
 
-ZitPit is organized around four stages:
+What ZitPit does **not** claim:
 
-- `Acquire`: all external artifact ingress resolves through ZitPit-managed intake
-- `Build`: install-time and build-time code runs only in a controlled lane
-- `Execute`: agents and workflows receive policy-scoped execution rights
-- `Publish`: optional release inspection catches packaging drift and release leaks
+- it is not a general agent-safety system
+- it does not prove unknown software is benign
+- it does not provide full ecosystem closure today
+- it does not make trusted-publisher compromise harmless
+- it does not claim safety for unsupported or unmanaged paths
 
-The architecture uses two lanes:
+## 4. Threat Model
 
-- **Hot lane**: approved immutable artifacts are served from the local cache or hot cache
-- **Cold lane**: first-seen or untrusted artifacts are quarantined and analyzed before they can influence the host
+The current threat model emphasizes the places where skeptical reviewers are right to push:
 
-### 3.1 Current implementation vs roadmap
+- **mandatory mediation and bypass**: submodules, LFS hydration, partial clone follow-on fetches, direct URLs, browser downloads, and unmanaged egress all matter
+- **transitive closure**: package managers, build backends, workflow reuse, and devcontainer features can discover more artifacts later
+- **repo-open surfaces**: `.mcp.json`, hooks, memory files, startup tasks, and devcontainer lifecycle can influence execution before review
+- **trust-plane compromise**: cache poisoning, stale trust roots, policy-store compromise, and signing-key compromise are real risks
+- **operator burden**: break-glass, approval latency, and availability are part of the security story because brittle systems get bypassed
 
-The current codebase proves part of the control plane, not the whole end state.
+Mirage Lab is useful as an evidence and ordering engine. It is not a safety oracle, and its quiet output should never be marketed as proof that software is benign.
 
-| Layer | Current implementation | Roadmap |
-| --- | --- | --- |
-| Acquire | Git smart-HTTP mediation, approved disk cache, in-memory hot cache, benchmark harness | Universal artifact gateway for npm, PyPI, Cargo, Go, GitHub Actions, raw HTTP downloads, and repo-open surfaces |
-| Build | Controlled cold-lane execution for approved Git intake paths and battle packs | Hermetic build lanes for package ecosystems and install scripts |
-| Execute | Policy hooks for agent and workspace boundaries | IDE- and MCP-native enforcement across agent runtimes |
-| Publish | Claim boundaries and roadmap notes | Publisher-side release firewall with artifact inspection |
+## 5. Architecture and Policy
 
-## 4. Trust Model
+ZitPit organizes the control plane into four stages:
 
-ZitPit does not treat hash equality as trust. Hashes are useful, but hash equality is not provenance.
+1. **Acquire**: resolve external requests to the strongest available immutable identity
+2. **Build**: separate build-time and install-time execution from simple acquisition
+3. **Execute**: grant policy-scoped rights rather than ambient host trust
+4. **Publish**: optionally inspect release outputs and publish paths
 
-The trust plane is designed to consume standards-backed inputs:
+The durable contract is the artifact policy event. It records:
 
-- TUF-style freshness, expiry, delegation, and rollback protection
-- Sigstore-style identity-bound signing and transparency evidence
-- in-toto-style step attestations
-- SLSA-style provenance and build expectations
+- `selector`
+- `resolved_immutable_identity`
+- `provenance_result`
+- `verdict`
+- `evidence_pointer`
+- `context`
+- `expiry_state`
+- `revocation_state`
 
-Approval records should carry:
+ZitPit uses capability-scoped verdicts rather than simple allow/block:
 
-- artifact digest
-- source coordinates
-- provenance and attestation status
-- publisher identity continuity
-- execution-surface flags
-- platform scope
-- expiry
-- revocation state
-- evidence pointer
+- `FETCH_ONLY`
+- `UNPACK_ONLY`
+- `BUILD_NO_NETWORK`
+- `TEST_NO_SECRETS`
+- `RUN_DEV`
+- `RUN_CI`
+- `BLOCKED`
 
-Unsupported ingress paths must be called unsupported, not quietly assumed secure. That matters for agent workflows because "works in practice" is not a trust model.
+The repository currently demonstrates protected-session enforcement families rather than universal host guarantees. Those demonstrations are important, but they should be described as demonstrated brokered-session controls unless host-side mandatory enforcement is fully proven.
 
-## 5. Mirage Lab
+## 6. Preliminary Evaluation
 
-The Mirage Lab is a cold-lane evidence engine. It is valuable for classification, enrichment, and operator review, but it is not the root trust oracle.
+The current evaluation is split into two proof obligations.
 
-The strongest statement ZitPit can make is not that a lab run looked quiet. The strongest statement is that unknown artifacts never executed on the real host before quarantine and policy evaluation.
+### 6.1 Deployability
 
-## 6. Evaluation
+The public benchmark harness measures the Git smart-HTTP intake path rather than a full clone or cross-ecosystem install. Across five public repositories and `N=5` samples per repository, web medians ranged from 433–1062 ms, approved disk-cache medians from 32–44 ms, and hot-cache medians from 13–16 ms.
 
-Public claims should be grounded in a benchmark matrix. The benchmark set currently covers:
+That does **not** prove full Git closure, package-manager-native closure, or universal ecosystem mediation.
 
-- malicious npm install-script packages
-- malicious Python sdists and startup paths
-- Rust `build.rs` execution
-- GitHub Actions mutable refs and unsafe action references
-- repo-controlled `.claude/`, `.mcp.json`, and devcontainer surfaces
-- raw HTTP installer fetches
-- benign controls for the same families
+It **does** show something operationally important: approved immutable intake can be materially faster than unmanaged public fetch.
 
-For the Git intake path, the current public demonstration run used five public repositories and `N=5` samples per repo. The observed medians were:
+### 6.2 Coverage Honesty
 
-| repo | web | cache | hot-cache |
-| --- | ---: | ---: | ---: |
-| git | 433 ms | 43 ms | 15 ms |
-| go | 492 ms | 44 ms | 16 ms |
-| node | 734 ms | 32 ms | 13 ms |
-| cpython | 1062 ms | 35 ms | 14 ms |
-| terraform | 582 ms | 39 ms | 15 ms |
+The coverage matrix is part of the argument, not something to hide. A credible paper should make unsupported or partial paths visible rather than implying full closure through architecture diagrams.
 
-Figure 1 shows the speedup snapshot generated from [`docs/benchmarks/latest.json`](../docs/benchmarks/latest.json). Figure 2 shows the simple control-plane diagram.
+The strongest current public proof families are:
 
-![Current five-repo speedup snapshot](../assets/figures/speedup.svg)
+- Git smart-HTTP intake
+- brokered protected-session command families
+- governed outbound DLP
 
-*Figure 1. Current five-repo demonstration run. The benchmark is intentionally small, public, and reproducible, with `N=5` samples per repo.*
+The next high-leverage proof families are:
 
-![ZitPit control-plane diagram](../assets/figures/network.svg)
+- `git_follow_on_intake`
+- `repo_open_execution_surface`
+- one package-dynamic-execution family next, likely npm Git dependency lifecycle or Python sdist/direct-URL build paths
 
-*Figure 2. Simple control-plane view: agent/IDE/CI requests flow through the gateway, approved artifacts hit hot cache, first-seen artifacts fall to the cold lane, and publish/revocation signals feed policy back.*
+## 7. Related Work
 
-For each benchmark, ZitPit should report:
+ZitPit sits between and alongside several existing control families:
 
-- ingress type
-- immutable artifact boundary
-- first execution boundary
-- expected policy
-- actual current behavior
-- roadmap target behavior
-- evidence produced
-- supported claim class
+- provenance and attestations
+- workspace trust and application control
+- hermetic and reproducible build systems
+- repository and package firewalls
+- runtime protection
+- behavioral analysis corpora such as OpenSSF Package Analysis and malicious-package datasets
 
-## 7. Claims We Can Make
+The paper’s claim is not that those fields are irrelevant. It is that agentic workflows need a clearer consumer-side boundary where external software and repo-open bundles earn execution rights.
 
-The public wording should stay aligned with [`CLAIMS.md`](../CLAIMS.md).
+## 8. Implications
 
-> **We can say**
->
-> - ZitPit turns first-seen external code from an execution event into a policy event.
-> - In enforced environments, unknown third-party artifacts do not execute on protected developer machines or CI runners before digest resolution, policy evaluation, and quarantine when required.
-> - ZitPit makes the safe path the fast path by serving approved artifacts locally while forcing new artifacts through governed intake.
-> - ZitPit is designed to block or contain short-lived registry compromises, malicious install scripts, and repo-controlled execution surfaces before they reach the host.
-> - With a publish gate enabled, ZitPit can also prevent whole classes of accidental release leaks and workflow-drift publishes.
->
-> **We cannot say**
->
-> - ZitPit ends supply-chain attacks forever.
-> - ZitPit would have prevented every Anthropic incident.
-> - Hash equality means software is safe.
-> - Mirage Lab silence means safety.
-> - Git interception alone solves the agent-era supply chain.
+The paper makes a narrow empirical claim and a broader architectural claim.
 
-## 8. Community and Reproducibility
+The narrow empirical claim is that some important slices of intake, protected-session mediation, and governed egress can be made explicit and auditable today, while approved immutable intake can remain faster than unmanaged public fetch.
 
-ZitPit is open source, and the benchmark matrix is public. That matters because the point of the project is not to hide the model; it is to make the model inspectable, reproducible, and extendable.
+The broader architectural claim is that this pattern could become a standard execution boundary for agentic environments. Repo-open state, workflow references, and other machine-consumable context increasingly behave like supply-chain input. If admission systems become common, open governance matters because these systems can centralize power if their policy memory, recall logic, and evidence formats are opaque or non-portable.
 
-The battle packs are intentionally community-extendable. Contributors can add new ecosystem adapters, new release scenarios, and new evidence cases without changing the core claim structure. Future work may widen coverage across other package managers and workflow systems, but the trust statement remains the same: first-seen code is a policy event, not ambient trust.
+## 9. Limitations and Future Work
 
-We want community help on benchmark design, ecosystem adapters, threat-model critique, battle packs, docs, and real-world incident replay cases. A world-class open-source security project should invite pressure, not hide from it.
+The present-tense limitations are straightforward:
 
-## 9. Limits
+- current public proof is strongest for Git smart-HTTP intake, protected-session command families, and governed egress
+- package-manager-native mediation remains incomplete
+- repo-open host-side enforcement depth remains incomplete
+- mandatory mediation remains hard
+- Mirage Lab is not a verifier
+- trusted publishers can still ship bad code
+- operator burden and availability still matter
 
-ZitPit does not claim to prevent:
+The near-term engineering agenda is also straightforward:
 
-- malicious code intentionally committed by a trusted maintainer
-- all producer-side release failures without a publish gate
-- host kernel compromise
-- physical access attacks
-- every possible sandbox-evasion technique
+- broader package-manager-native mediation
+- stronger follow-on Git closure for submodules, LFS, and delayed fetches
+- repo-open benchmark families
+- stronger provenance consumption with expiry, revocation, and recall
+- public benchmark suites that distinguish implemented proof from roadmap ambition
 
 ## 10. Conclusion
 
-ZitPit is a credibility-first security layer for agentic development. Its value is in making untrusted code execution explicit, policy-scoped, auditable, and fast for approved artifacts rather than ambient and invisible.
+The interval between discovering external software and granting it local authority is collapsing toward zero. That changes the practical trust problem.
 
-The references and related work are collected in [`references.md`](references.md).
+The important question is no longer only whether a package, workflow, or repo-open bundle exists on the internet. The important question is whether it has earned execution rights in a protected environment under durable policy.
+
+That is the boundary ZitPit is trying to make explicit.

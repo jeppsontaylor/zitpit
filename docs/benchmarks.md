@@ -17,13 +17,15 @@ We measure three timing classes for Git intake:
 - resolved HEAD SHA capture for benchmarked repos
 - median and p95 reporting for the current five-repo benchmark set
 
-Use [`BENCHMARKS.md`](../BENCHMARKS.md) as the source of truth for broader current-versus-roadmap claim boundaries across npm, PyPI, Cargo, GitHub Actions, raw HTTP installers, and repo-open surfaces.
+Use [`BENCHMARKS.md`](../BENCHMARKS.md) as the source of truth for broader current-versus-roadmap claim boundaries across npm, PyPI, Cargo, GitHub Actions, raw HTTP installers, repo-open surfaces, and governed outbound DLP.
 
 ## Benchmark Families Versus Claim Support
 
 ZitPit has battle suites and scenario packs for several families, but those do not all imply full current implementation support.
 
 - `git`: publicly benchmarked and supported today
+- `blocked-command shell broker`: battle-pack-backed in the current Docker demo for protected SSH command denial
+- `governed outbound DLP`: battle-pack-backed and smoke-verified in the current Docker demo for sensitive upload blocking on governed egress paths
 - `npm`, `pypi`, `cargo`, `actions`, `shell`, `workspace`: represented in the matrix as partial, planned, or roadmap-backed families depending on the exact claim
 - anything not mapped in [`BENCHMARKS.md`](../BENCHMARKS.md): roadmap-only or out of scope for public claims
 

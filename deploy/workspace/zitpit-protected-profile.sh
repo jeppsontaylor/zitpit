@@ -13,7 +13,7 @@ _zitpit_emit_terminal_identity() {
 }
 
 export ZITPIT_PROTECTED="${ZITPIT_PROTECTED:-1}"
-export ZITPIT_WINDOW_TITLE="${ZITPIT_WINDOW_TITLE:-ZitPit Protected SSH}"
+export ZITPIT_WINDOW_TITLE="${ZITPIT_WINDOW_TITLE:-LOCKED DREAM SHELL}"
 export ZITPIT_BG_COLOR="${ZITPIT_BG_COLOR:-#103a1f}"
 
 case "${TERM:-}" in
@@ -23,9 +23,9 @@ case "${TERM:-}" in
 esac
 
 case "${PS1:-}" in
-  *"ZITPIT PROTECTED"*) ;;
+  *"z@lock"*) ;;
   *)
-    PS1='[ZITPIT PROTECTED] '"${PS1:-\\u@\\h:\\w\\$ }"
+    PS1='\[\e[1;95m\]\u@\h\[\e[0m\]:\[\e[1;96m\]\w\[\e[0m\]\$ '
     ;;
 esac
 

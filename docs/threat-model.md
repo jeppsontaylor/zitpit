@@ -1,53 +1,94 @@
 # Threat Model
 
-ZitPit is designed to protect developers and AI agents from supply-chain attacks that turn untrusted external code into host execution.
+ZitPit is designed to protect developers and AI agents from supply-chain attacks that turn untrusted external software into protected-host execution too early.
 
-## Current Threats
+## Core Threats
 
-### 1. Malicious registry publishes
+### 1. Mandatory-mediation bypass
 
-Attackers may compromise a maintainer account, ship a typosquatted package, or publish a malicious release that looks legitimate by name but not by identity.
+If an artifact reaches the host through an unmanaged path, the admission guarantee weakens.
 
-### 2. Install and build execution
+Examples:
 
-Packages can execute code during install, unpack, build, or startup. That includes lifecycle scripts, build scripts, native extensions, and startup hooks.
+- browser downloads
+- vendored tarballs
+- local copies
+- alternate registries or direct URLs
+- Git submodules, LFS hydration, or delayed follow-on fetches
+- direct unmanaged egress
 
-### 3. Repo-controlled execution surfaces
+### 2. Install-time and build-time execution
 
-Repositories may contain agent and IDE configuration that triggers code execution or credential exposure when a workspace is opened.
+Packages and build systems can execute code during install, build, or startup.
 
-### 4. Agent tool bypass attempts
+Examples:
 
-Agents may try to route around policy by editing config, changing tool settings, invoking direct network calls, or using unsupported paths.
+- npm lifecycle scripts and Git dependencies
+- Python sdists and dynamic build backends
+- Rust `build.rs` and related build-time execution
+- raw `curl | bash` style installers
 
-### 5. Rollback, freeze, and stale-fallback risk
+### 3. Repo-open and workspace execution surfaces
 
-An older approved artifact may be known vulnerable or may no longer match current trust expectations. A fallback path can become a downgrade path if it is not policy-scoped and expiring.
+Opening a repository can influence execution before review.
 
-### 6. Sandbox evasion
+Examples:
 
-Malware may delay execution, look for virtualization artifacts, wait for secrets, or change behavior when it sees a lab.
+- `.mcp.json`
+- hooks
+- memory files
+- devcontainer lifecycle and Feature install paths
+- workspace tasks and similar project-level automation
 
-### 7. Trust infrastructure compromise
+### 4. Workflow and CI trust drift
 
-ZitPit itself may be targeted. If the trust plane, manifest service, or signing material is compromised, protected hosts inherit that risk.
+Mutable references, reusable workflow chains, cache poisoning, and unsafe action composition can turn trusted automation into an intake path.
 
-## Mitigations
+### 5. Secret theft and reusable trust abuse
 
-- exact-digest admission
+High-value reads and outward movement matter because reusable secrets outlive the original compromise.
+
+Examples:
+
+- `.env` and cloud-credential reads
+- SSH-agent touch
+- metadata endpoint access
+- browser or session-token access
+- registry or signing-key reads
+
+### 6. Cache and trust-plane compromise
+
+The control plane becomes part of the trusted computing base.
+
+Examples:
+
+- cache poisoning
+- stale trust roots
+- policy-store compromise
+- signing-key compromise
+- parser or archive-handling weaknesses
+
+### 7. Operator and availability failure
+
+Approval bottlenecks, break-glass overuse, or brittle availability can create bypass pressure and undermine the security model.
+
+## Current Mitigations
+
+- exact immutable identity before execution rights
 - capability-scoped verdicts
-- no-direct-execution default for unknown artifacts
-- quarantine before build or run
-- signed evidence for every promotion or block
+- no direct protected-host execution for first-seen artifacts by default on mediated paths
+- quarantine before build or run when required
+- governed egress for selected outbound flows
+- signed or durable evidence for promotion, block, and review events
 - explicit unsupported-path handling
-- operator-visible downgrade and stale-use decisions
 
-## Out Of Scope
+## Out of Scope
 
 ZitPit does not claim to solve:
 
-- malicious code intentionally committed by a trusted developer
+- malicious code intentionally committed by a trusted developer or maintainer
 - kernel compromise of the host
 - physical access to the protected environment
-- every possible producer-side release failure without a publish gate
-
+- every producer-side release failure without a publish gate
+- safety for unsupported or unmanaged paths by implication
+- general agent safety independent of software intake and governed execution

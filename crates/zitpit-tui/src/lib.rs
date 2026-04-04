@@ -1491,6 +1491,7 @@ mod tests {
                     host_family: Some("github.com".to_string()),
                 },
                 proxy_action: ProxyAction::Pending,
+                egress_decision: None,
                 status_code: Some(503),
                 bytes_in: Some(0),
                 bytes_out: Some(0),

@@ -1,6 +1,15 @@
 /target
-Cargo.lock
 .DS_Store
 .zitpit/
 state/
 crates/*/state/
+/*.DS_Store
+/a[0-9].txt
+/good[0-9].txt
+/mean[0-9].txt
+/launch[0-9].txt
+/s[0-9].txt
+/wr[0-9].txt
+/dummy.cfg
+/tmp.logs
+/tmp.logs2

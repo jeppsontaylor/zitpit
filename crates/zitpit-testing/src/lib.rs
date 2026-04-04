@@ -70,6 +70,7 @@ pub async fn spawn() -> TestHarness {
         store: store.clone(),
         broker: ArtifactBroker::new(store.clone(), policy.clone()),
         git_adapter: zitpit_core::GitSmartHttpAdapter::with_paths(store.clone(), paths.clone()),
+        lockdown_mode: std::sync::Arc::new(std::sync::RwLock::new(policy.lockdown_mode)),
         policy,
         http_client: Client::builder()
             .redirect(reqwest::redirect::Policy::none())
@@ -476,6 +477,7 @@ mod tests {
             store: store.clone(),
             broker: ArtifactBroker::new(store.clone(), policy.clone()),
             git_adapter: zitpit_core::GitSmartHttpAdapter::with_paths(store.clone(), paths),
+            lockdown_mode: std::sync::Arc::new(std::sync::RwLock::new(policy.lockdown_mode)),
             policy: zitpit_core::PolicyConfig {
                 proxy_port,
                 ..policy
@@ -580,6 +582,7 @@ mod tests {
                 paths,
                 policy.hold_duration_hours,
             ),
+            lockdown_mode: std::sync::Arc::new(std::sync::RwLock::new(policy.lockdown_mode)),
             policy: zitpit_core::PolicyConfig {
                 proxy_port,
                 ..policy
@@ -761,6 +764,7 @@ mod tests {
                 paths,
                 policy.hold_duration_hours,
             ),
+            lockdown_mode: std::sync::Arc::new(std::sync::RwLock::new(policy.lockdown_mode)),
             policy: zitpit_core::PolicyConfig {
                 proxy_port,
                 ..policy

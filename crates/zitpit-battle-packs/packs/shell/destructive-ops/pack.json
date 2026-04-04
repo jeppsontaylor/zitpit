@@ -1,0 +1,56 @@
+{
+  "pack_id": "shell-destructive-ops",
+  "title": "Destructive operation blocked",
+  "attack_family": "shell_installers",
+  "public_tier": "private_advanced",
+  "runtime_family": "shell",
+  "artifact_type": "shell_installer",
+  "artifact": {
+    "ecosystem": "archive",
+    "source": "ssh://zitpit.invalid/destructive-ops",
+    "requested_selector": "sessiond",
+    "selector_kind": "url"
+  },
+  "incident_refs": ["private/destructive-ops"],
+  "technique_refs": ["rm-rf", "force-push"],
+  "control_pair_id": "control-benign-shell-command",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": [],
+  "required_personas": ["developer_workstation"],
+  "required_scenarios": [
+    { "name": "destructive_op", "detonation": "cli_smoke", "phase": "cli" }
+  ],
+  "suite_tags": ["shell", "queue"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": false,
+    "runner_mode": "fixture_only"
+  },
+  "expected_node_decision": "blocked_pre_exec",
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": { "required": ["destructive_op_denied"], "allowed_false_positives": [] },
+  "control_expectations": { "require_clean_verdict": true, "max_shared_tripwires": 0, "notes": [] },
+  "evidence_minimums": {
+    "require_captured_request": true,
+    "require_quarantine_job": false,
+    "require_lab_run": false,
+    "require_evidence_bundle": true,
+    "require_feed_visibility": true,
+    "require_browser_trace": false
+  },
+  "timing": { "max_queue_latency_ms": 500, "max_detonation_startup_ms": 500, "max_verdict_completion_ms": 500 },
+  "files": ["fixture.sh"],
+  "steps": [
+    {
+      "step_id": "deny_recursive_delete",
+      "detail": "session broker rejects destructive delete commands in max containment mode",
+      "phase": "cli",
+      "process_lineage": ["zitpit-sessiond", "rm"],
+      "command": "rm -rf /home/z/workspace",
+      "tripwire": "destructive_op_denied",
+      "severity": "critical"
+    }
+  ]
+}

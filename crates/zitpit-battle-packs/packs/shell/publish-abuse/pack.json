@@ -1,0 +1,56 @@
+{
+  "pack_id": "shell-publish-abuse",
+  "title": "Publish abuse blocked",
+  "attack_family": "shell_installers",
+  "public_tier": "private_advanced",
+  "runtime_family": "shell",
+  "artifact_type": "shell_installer",
+  "artifact": {
+    "ecosystem": "archive",
+    "source": "ssh://zitpit.invalid/publish-abuse",
+    "requested_selector": "sessiond",
+    "selector_kind": "url"
+  },
+  "incident_refs": ["private/publish-abuse"],
+  "technique_refs": ["npm-publish", "release-abuse"],
+  "control_pair_id": "control-benign-shell-command",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": [],
+  "required_personas": ["developer_workstation"],
+  "required_scenarios": [
+    { "name": "publish_abuse", "detonation": "cli_smoke", "phase": "cli" }
+  ],
+  "suite_tags": ["shell", "queue"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": false,
+    "runner_mode": "fixture_only"
+  },
+  "expected_node_decision": "unsupported_denied",
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": { "required": ["publish_attempt_denied"], "allowed_false_positives": [] },
+  "control_expectations": { "require_clean_verdict": true, "max_shared_tripwires": 0, "notes": [] },
+  "evidence_minimums": {
+    "require_captured_request": true,
+    "require_quarantine_job": false,
+    "require_lab_run": false,
+    "require_evidence_bundle": true,
+    "require_feed_visibility": true,
+    "require_browser_trace": false
+  },
+  "timing": { "max_queue_latency_ms": 500, "max_detonation_startup_ms": 500, "max_verdict_completion_ms": 500 },
+  "files": ["fixture.sh"],
+  "steps": [
+    {
+      "step_id": "deny_npm_publish",
+      "detail": "session broker rejects publish actions until a dedicated broker exists",
+      "phase": "cli",
+      "process_lineage": ["zitpit-sessiond", "npm"],
+      "command": "npm publish",
+      "tripwire": "publish_attempt_denied",
+      "severity": "critical"
+    }
+  ]
+}

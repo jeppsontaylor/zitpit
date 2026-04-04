@@ -1,0 +1,57 @@
+{
+  "pack_id": "shell-browser-session-access",
+  "title": "Browser session token access blocked",
+  "attack_family": "shell_installers",
+  "public_tier": "private_advanced",
+  "runtime_family": "shell",
+  "artifact_type": "shell_installer",
+  "artifact": {
+    "ecosystem": "archive",
+    "source": "ssh://zitpit.invalid/browser-session-access",
+    "requested_selector": "sessiond",
+    "selector_kind": "url"
+  },
+  "incident_refs": ["private/browser-session-access"],
+  "technique_refs": ["browser-token-scrape", "cookie-read"],
+  "control_pair_id": "control-benign-shell-command",
+  "confidence_policy": "hard_ban",
+  "allowed_baseline_signals": [],
+  "persona_overrides": [],
+  "required_personas": ["developer_workstation"],
+  "required_scenarios": [
+    { "name": "browser_session_access", "detonation": "cli_smoke", "phase": "cli" }
+  ],
+  "suite_tags": ["shell", "queue"],
+  "execution": {
+    "browser_required": false,
+    "vm_required": false,
+    "queue_required": false,
+    "runner_mode": "fixture_only"
+  },
+  "expected_node_decision": "blocked_pre_exec",
+  "expected_verdict": { "verdict": "malicious" },
+  "expected_tripwires": { "required": ["browser_state_denied"], "allowed_false_positives": [] },
+  "control_expectations": { "require_clean_verdict": true, "max_shared_tripwires": 0, "notes": [] },
+  "evidence_minimums": {
+    "require_captured_request": true,
+    "require_quarantine_job": false,
+    "require_lab_run": false,
+    "require_evidence_bundle": true,
+    "require_feed_visibility": true,
+    "require_browser_trace": false
+  },
+  "timing": { "max_queue_latency_ms": 500, "max_detonation_startup_ms": 500, "max_verdict_completion_ms": 500 },
+  "files": ["fixture.sh"],
+  "steps": [
+    {
+      "step_id": "deny_browser_cookie_store_read",
+      "detail": "session broker rejects direct reads of browser cookie and token stores",
+      "phase": "cli",
+      "process_lineage": ["zitpit-sessiond", "cat"],
+      "command": "cat /home/z/.config/google-chrome/Default/Cookies",
+      "file_path": "/home/z/.config/google-chrome/Default/Cookies",
+      "tripwire": "browser_state_denied",
+      "severity": "critical"
+    }
+  ]
+}

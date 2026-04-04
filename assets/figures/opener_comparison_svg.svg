@@ -92,9 +92,9 @@
   <circle class="intrusionHalo" cx="1000" cy="265" r="14" />
   <circle class="intrusion" cx="1000" cy="272" r="7" />
   <path class="intrusion" d="M 992 268 L 1008 268 M 997 263 L 1003 263 M 1000 265 L 1000 251 M 1000 267 L 991 277 M 1000 267 L 1009 277 M 996 273 L 993 277 M 1004 273 L 1007 277" />
-  <text class="boxText" x="1078" y="267" text-anchor="middle">Quarantine</text>
+  <text class="boxText" x="1078" y="267" text-anchor="middle">Quarantine +</text>
   <text class="boxText" x="1078" y="285" text-anchor="middle">honeypot</text>
-  <text class="small" x="1078" y="304" text-anchor="middle">trap / inspect</text>
+  <text class="small" x="1078" y="304" text-anchor="middle">hold / inspect</text>
   <text class="boxText" x="1051" y="164" text-anchor="middle">Protected</text>
   <text class="boxText" x="1051" y="182" text-anchor="middle">host</text>
 
@@ -103,5 +103,5 @@
   <path class="rightArrow" d="M 946 278 L 964 278" />
   <path class="rightArrow" d="M 1042 238 L 1051 202" />
   <path class="amberArrow" d="M 948 232 L 986 255" />
-  <text class="rightLabel" x="904" y="374" text-anchor="middle">Threat trapped before host execution</text>
+  <text class="rightLabel" x="904" y="374" text-anchor="middle">Held before host execution</text>
 </svg>

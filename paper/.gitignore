@@ -3,3 +3,9 @@
 *.blg
 *.log
 *.out
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+.DS_Store
+main.pdf
+zitpit_main.pdf

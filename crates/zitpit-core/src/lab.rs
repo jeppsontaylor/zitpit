@@ -187,6 +187,20 @@ fn is_malicious_tripwire(kind: TripwireKind) -> bool {
             | TripwireKind::ReleaseArtifactMismatch
             | TripwireKind::SubmoduleRewrite
             | TripwireKind::RepoIdentityDrift
+            | TripwireKind::CommandBlocked
+            | TripwireKind::SecretReadDenied
+            | TripwireKind::BrowserStateDenied
+            | TripwireKind::RepoOpenDenied
+            | TripwireKind::NetworkEgressDenied
+            | TripwireKind::ReconDenied
+            | TripwireKind::PersistenceWriteDenied
+            | TripwireKind::DestructiveOpDenied
+            | TripwireKind::PublishAttemptDenied
+            | TripwireKind::PrivateKeyEgressDenied
+            | TripwireKind::CredentialEgressDenied
+            | TripwireKind::RegulatedDataEgressDenied
+            | TripwireKind::SourceIpEgressDenied
+            | TripwireKind::SensitivePayloadRedacted
     )
 }
 
@@ -343,6 +357,12 @@ mod tests {
             TripwireKind::ReleaseArtifactMismatch,
             TripwireKind::SubmoduleRewrite,
             TripwireKind::RepoIdentityDrift,
+            TripwireKind::CommandBlocked,
+            TripwireKind::SecretReadDenied,
+            TripwireKind::NetworkEgressDenied,
+            TripwireKind::PersistenceWriteDenied,
+            TripwireKind::DestructiveOpDenied,
+            TripwireKind::PublishAttemptDenied,
         ];
 
         for kind in cases {

@@ -4,6 +4,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::egress::EgressDecision;
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum Ecosystem {
@@ -133,6 +135,190 @@ pub enum TripwireKind {
     WorkspaceConfigLoad,
     AgentHookWrite,
     WorkspaceSecretScrape,
+    CommandBlocked,
+    SecretReadDenied,
+    BrowserStateDenied,
+    RepoOpenDenied,
+    NetworkEgressDenied,
+    ReconDenied,
+    PersistenceWriteDenied,
+    DestructiveOpDenied,
+    PublishAttemptDenied,
+    PrivateKeyEgressDenied,
+    CredentialEgressDenied,
+    RegulatedDataEgressDenied,
+    SourceIpEgressDenied,
+    ArchiveUnpackScan,
+    SensitivePayloadRedacted,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ActorType {
+    Human,
+    Agent,
+    Automation,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TrustState {
+    Sterile,
+    Untrusted,
+    Trusted,
+    BreakGlass,
+}
+
+/// Administrative posture for the entire enforcement surface.
+/// Each mode orchestrates the existing granular booleans in `PolicyConfig`
+/// rather than replacing them; operators can still override individual flags.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LockdownMode {
+    /// Developer-friendly: warns on ambiguous actions, allows most process execution, still audited
+    Relaxed,
+    /// Default demo/production posture: brokered SSH, governed egress, current blocker set
+    Protected,
+    /// Maximum containment: fail-closed for all ambiguous or unsupported action families
+    Sealed,
+    /// Temporary admin override with explicit expiry and audit evidence
+    BreakGlass,
+}
+
+impl Default for LockdownMode {
+    fn default() -> Self {
+        Self::Protected
+    }
+}
+
+impl LockdownMode {
+    /// Whether unrecognized ProcessExec commands should be allowed (true) or brokered/denied (false)
+    pub fn allows_ambiguous_process(self) -> bool {
+        matches!(self, Self::Relaxed | Self::BreakGlass)
+    }
+
+    /// Whether SecretRead should step-up (true) or hard-deny (false)
+    pub fn secret_read_steps_up(self) -> bool {
+        matches!(self, Self::Relaxed)
+    }
+
+    /// Whether egress to unknown-external destinations is default-deny
+    pub fn egress_default_deny(self) -> bool {
+        !matches!(self, Self::Relaxed | Self::BreakGlass)
+    }
+
+    /// Whether Unsupported families should fail closed as Deny
+    pub fn unsupported_fails_closed(self) -> bool {
+        matches!(self, Self::Sealed)
+    }
+
+    /// Whether egress StepUp outcomes should be treated as Deny
+    pub fn stepup_treated_as_deny(self) -> bool {
+        matches!(self, Self::Sealed)
+    }
+
+    /// Whether all actions should be allowed with audit evidence (break-glass)
+    pub fn is_break_glass(self) -> bool {
+        matches!(self, Self::BreakGlass)
+    }
+
+    pub fn is_sealed(self) -> bool {
+        matches!(self, Self::Sealed)
+    }
+}
+
+/// Temporary break-glass override context. Only meaningful when mode is BreakGlass.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LockdownOverride {
+    pub mode: LockdownMode,
+    pub requested_by: String,
+    pub reason: String,
+    pub expires_at: DateTime<Utc>,
+    pub evidence_id: Uuid,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ActionFamily {
+    ProcessExec,
+    SecretRead,
+    BrowserStateRead,
+    NetConnect,
+    NetSend,
+    RepoOpenConfig,
+    McpServerStart,
+    Publish,
+    Deploy,
+    IamMutate,
+    PersistenceWrite,
+    DestructiveOp,
+    BreakGlass,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PolicyOutcome {
+    Allow,
+    Deny,
+    StepUp,
+    Quarantine,
+    Unsupported,
+    BrokerOnly,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum DataClass {
+    Credentials,
+    CustomerData,
+    RegulatedData,
+    SourceAndIp,
+    InfrastructureState,
+    ReleaseAuthority,
+    ModelAndAgentInternals,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CanonicalCommand {
+    pub binary_path: String,
+    pub argv: Vec<String>,
+    #[serde(default)]
+    pub interpreter_chain: Vec<String>,
+    pub inline_eval: bool,
+    pub cwd: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DestinationContext {
+    pub scheme: String,
+    pub host: String,
+    pub port: u16,
+    pub trust_zone: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BehaviorRequest {
+    pub request_id: Uuid,
+    pub actor_type: ActorType,
+    pub session_id: Uuid,
+    pub action_family: ActionFamily,
+    pub session_trust_state: TrustState,
+    pub repo_trust_state: TrustState,
+    pub command: Option<CanonicalCommand>,
+    #[serde(default)]
+    pub sensitive_paths: Vec<String>,
+    pub destination: Option<DestinationContext>,
+    #[serde(default)]
+    pub data_classes: Vec<DataClass>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BehaviorDecision {
+    pub outcome: PolicyOutcome,
+    pub reason: String,
+    pub matched_rule: String,
+    pub evidence_id: Uuid,
+    pub policy_revision: String,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -262,6 +448,8 @@ pub struct DecisionRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PolicyConfig {
+    #[serde(default)]
+    pub lockdown_mode: LockdownMode,
     pub hold_duration_hours: i64,
     pub enabled_ecosystems: Vec<Ecosystem>,
     pub allow_browse_lane: bool,
@@ -276,6 +464,7 @@ pub struct PolicyConfig {
 impl Default for PolicyConfig {
     fn default() -> Self {
         Self {
+            lockdown_mode: LockdownMode::default(),
             hold_duration_hours: 14 * 24,
             enabled_ecosystems: vec![
                 Ecosystem::Git,
@@ -335,6 +524,7 @@ pub struct EvidenceEvent {
 pub enum ProxyTraceKind {
     Received,
     Classified,
+    DlpScanned,
     CacheHit,
     HotCacheHit,
     FetchStarted,
@@ -353,6 +543,8 @@ pub enum ProxyTraceKind {
     UpstreamError,
     TunnelAccepted,
     TunnelClosed,
+    EgressAllowed,
+    EgressBlocked,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -583,6 +775,8 @@ pub struct CapturedRequest {
     pub client_outcome: Option<ClientVisibleOutcome>,
     pub decision_reason: String,
     pub artifact_key: Option<ArtifactKey>,
+    #[serde(default)]
+    pub egress_decision: Option<EgressDecision>,
     pub trace: ProxyTrace,
 }
 

@@ -42,17 +42,16 @@ reset_terminal_identity() {
   esac
 }
 
-if [[ -n "${SSH_ORIGINAL_COMMAND:-}" ]]; then
-  exec /bin/bash -lc "${SSH_ORIGINAL_COMMAND}"
-fi
-
 if [[ ! -t 0 || ! -t 1 ]]; then
-  fatal "Interactive login was blocked because the protected terminal UI could not be attached."
+  if [[ -z "${SSH_ORIGINAL_COMMAND:-}" ]]; then
+    fatal "Interactive login was blocked because the protected terminal UI could not be attached."
+  fi
 fi
 
 TMUX_BIN="${ZITPIT_TMUX_BIN:-$(command -v tmux || true)}"
 TMUX_CONF="${ZITPIT_TMUX_CONF:-/etc/zitpit/tmux-protected.conf}"
 SESSION_NAME="${ZITPIT_TMUX_SESSION_NAME:-zitpit-protected}"
+SESSIOND_BIN="${ZITPIT_SESSIOND_BIN:-/usr/local/bin/zitpit-sessiond}"
 
 if [[ -z "${TMUX_BIN}" ]]; then
   fatal "tmux is missing from the workspace image."
@@ -62,12 +61,27 @@ if [[ ! -r "${TMUX_CONF}" ]]; then
   fatal "The managed tmux config is missing."
 fi
 
+if [[ ! -x "${SESSIOND_BIN}" ]]; then
+  fatal "The ZitPit session broker is missing."
+fi
+
 export ZITPIT_PROTECTED="${ZITPIT_PROTECTED:-1}"
 export ZITPIT_PROTECTED_UI="tmux"
-export ZITPIT_WINDOW_TITLE="${ZITPIT_WINDOW_TITLE:-ZitPit Protected SSH}"
+export ZITPIT_WINDOW_TITLE="${ZITPIT_WINDOW_TITLE:-LOCKED DREAM SHELL}"
 export ZITPIT_BG_COLOR="${ZITPIT_BG_COLOR:-#103a1f}"
 
 normalize_term
 trap reset_terminal_identity EXIT
 emit_terminal_identity
-"${TMUX_BIN}" -f "${TMUX_CONF}" new-session -A -s "${SESSION_NAME}"
+if [[ -n "${SSH_ORIGINAL_COMMAND:-}" ]]; then
+  exec "${SESSIOND_BIN}" \
+    --tmux-bin "${TMUX_BIN}" \
+    --tmux-conf "${TMUX_CONF}" \
+    --session-name "${SESSION_NAME}" \
+    --command "${SSH_ORIGINAL_COMMAND}"
+fi
+
+exec "${SESSIOND_BIN}" \
+  --tmux-bin "${TMUX_BIN}" \
+  --tmux-conf "${TMUX_CONF}" \
+  --session-name "${SESSION_NAME}"

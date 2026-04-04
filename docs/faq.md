@@ -1,12 +1,12 @@
 # Frequently Asked Questions (FAQ)
 
 ## What's the goal of ZitPit?
-To keep first-seen external code from silently turning into host execution in agentic workflows. ZitPit is a mandatory artifact firewall for intake, plus a cold-lane evidence engine and a fast local cache for approved artifacts.
+To keep first-seen external artifacts from silently turning into host execution in agentic workflows. ZitPit is a consumer-side software admission control layer, plus a cold-lane evidence engine and a fast local cache for approved artifacts.
 
 ---
 
 ## Does ZitPit replace Artifactory or Nexus?
-No. ZitPit is a **Mandatory Artifact Firewall**. While it provides caching on the approved path, its primary focus is policy, quarantine, evidence, and approved-path acceleration. You can use ZitPit as a proxy in front of an existing artifact repository.
+No. ZitPit is primarily a consumer-side admission layer. While it provides caching on the approved path, its primary focus is policy, quarantine, evidence, and approved-path acceleration. You can use ZitPit as a proxy in front of an existing artifact repository, but package-manager-native closure is only partial or roadmap for several surfaces today.
 
 ---
 
@@ -16,7 +16,7 @@ AI agents move fast. If an agent requests an approved immutable artifact, ZitPit
 ---
 
 ## Is ZitPit "Air-Gapped"?
-No, but it creates a governed intake boundary. ZitPit is the only service with outbound access for dependency intake. Every other service and developer environment is forced through the ZitPit gateway.
+No, but it creates a governed intake boundary. ZitPit is the controlled path for mediated intake, while unsupported or unmanaged paths remain outside the guarantee.
 
 ---
 

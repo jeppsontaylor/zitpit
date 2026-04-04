@@ -1,0 +1,78 @@
+autoload -Uz colors vcs_info
+colors
+setopt prompt_subst
+setopt auto_cd interactive_comments hist_ignore_dups share_history
+
+export ZITPIT_PROTECTED="${ZITPIT_PROTECTED:-1}"
+export ZITPIT_WINDOW_TITLE="${ZITPIT_WINDOW_TITLE:-LOCKED DREAM SHELL}"
+export ZITPIT_BG_COLOR="${ZITPIT_BG_COLOR:-#103a1f}"
+export CLICOLOR=1
+export CLICOLOR_FORCE=1
+export COLORTERM=truecolor
+export CARGO_TERM_COLOR=always
+export BAT_THEME="${BAT_THEME:-ansi}"
+export LESS='-RF'
+export MANPAGER='sh -c "col -bx | batcat --language=man --style=plain --paging=never"'
+
+if [ -r /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]; then
+  source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+fi
+if [ -r /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
+  source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+fi
+
+if command -v zoxide >/dev/null 2>&1; then
+  eval "$(zoxide init zsh)"
+fi
+if [ -r /usr/share/doc/fzf/examples/key-bindings.zsh ]; then
+  source /usr/share/doc/fzf/examples/key-bindings.zsh
+fi
+if [ -r /usr/share/doc/fzf/examples/completion.zsh ]; then
+  source /usr/share/doc/fzf/examples/completion.zsh
+fi
+
+zstyle ':vcs_info:*' enable git
+zstyle ':vcs_info:git:*' formats ' %F{226}[%b]%f'
+zstyle ':vcs_info:git:*' actionformats ' %F{196}[%b|%a]%f'
+zstyle ':vcs_info:git:*' stagedstr '%F{46}+%f'
+zstyle ':vcs_info:git:*' unstagedstr '%F{208}*%f'
+zstyle ':vcs_info:git:*' check-for-changes true
+
+_zitpit_emit_terminal_identity() {
+  case "${TERM:-}" in
+    xterm*|screen*|tmux*|rxvt*|alacritty*|foot*|wezterm*|kitty*)
+      printf '\033]2;%s\a' "${ZITPIT_WINDOW_TITLE:-LOCKED DREAM SHELL}"
+      printf '\033]11;%s\a' "${ZITPIT_BG_COLOR:-#103a1f}"
+      ;;
+  esac
+}
+
+_zitpit_precmd() {
+  vcs_info
+  _zitpit_emit_terminal_identity
+}
+
+precmd_functions+=(_zitpit_precmd)
+PROMPT='%F{201}%n@%m%f:%F{51}%~%f${vcs_info_msg_0_}%F{46}%%%f '
+RPROMPT='%(?..%F{196}exit:%?%f )%F{226}%*%f'
+_zitpit_precmd
+
+alias ls='exa --group-directories-first --color=always'
+alias ll='exa -lah --group-directories-first --git --color=always'
+alias la='exa -la --group-directories-first --color=always'
+alias tree='exa --tree --level=3 --color=always'
+alias cat='batcat --paging=never --style=plain --theme=ansi'
+alias grep='rg'
+alias fd='fdfind'
+alias gs='git -c color.status=always status --short --branch'
+alias gb='git branch --all --color=always'
+alias gl='git log --graph --decorate --oneline --color=always --all'
+alias gd='git diff --color=always --color-moved=default --word-diff=color'
+alias gds='git diff --staged --color=always --color-moved=default --word-diff=color'
+alias gcargo='CARGO_TERM_COLOR=always cargo'
+alias pytest='pytest --color=yes'
+
+export GIT_PAGER='less -RF'
+export FZF_DEFAULT_COMMAND='fdfind --hidden --exclude .git .'
+export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+export FZF_DEFAULT_OPTS='--height=60% --layout=reverse --border --color=bg:#103a1f,bg+:#14532d,fg:#d9f99d,fg+:#ecfccb,hl:#22d3ee,hl+:#67e8f9,info:#fde047,prompt:#f472b6,pointer:#fb7185,marker:#f59e0b,spinner:#a3e635,header:#86efac'

@@ -1,12 +1,14 @@
 # ZitPit IEEE Paper Bundle
 
-This directory contains the canonical publication bundle for the ZitPit paper:
+This directory contains the canonical publication bundle for the ZitPit paper.
 
-- `main.tex`: the IEEE-style manuscript source
+The source of truth is `main.tex`. The canonical tracked PDF artifact is `zitpit-v1.0-paper.pdf`.
+
+Included here:
+
 - `references.bib`: the BibTeX bibliography
 - `figures/`: publication figures in PDF and EPS form
 - `diagram-prompts.md`: image-model prompt pack for opener-diagram exploration
-- `zitpit-v1.0-paper.pdf`: the latest packaged paper artifact
 - `IEEEtran.cls` and `IEEEtran.bst`: vendored IEEE formatting assets
 
 ## Build
@@ -23,10 +25,9 @@ If `latexmk` is not available, a lightweight local fallback is:
 ```bash
 cd paper
 tectonic main.tex
-tectonic main.tex
 ```
 
-The TeX toolchain emits `main.pdf` locally. For releases, package the latest build as `zitpit-v1.0-paper.pdf` so the artifact has a stable, human-readable name.
+The TeX toolchain emits `main.pdf` locally, but that output is ignored and not meant to be tracked. For releases, package the latest build as `zitpit-v1.0-paper.pdf` so the artifact has a stable, human-readable name.
 
 ## Figures
 
